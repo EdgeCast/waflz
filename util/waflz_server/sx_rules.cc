@@ -109,7 +109,7 @@ ns_is2::h_resp_t sx_rules::handle_rqst(waflz_pb::enforcement **ao_enf,
         // -------------------------------------------------
         // process profile
         // -------------------------------------------------
-        l_ctx = new ns_waflz::rqst_ctx((void *)&a_session, DEFAULT_BODY_SIZE_MAX, m_callbacks, false, false);
+        l_ctx = new ns_waflz::rqst_ctx((void *)&a_session, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, m_callbacks, false, false);
         l_s = m_rules->process(&l_event, &a_session, &l_ctx);
         if(l_s != WAFLZ_STATUS_OK)
         {

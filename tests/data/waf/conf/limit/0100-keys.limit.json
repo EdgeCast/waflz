@@ -1,0 +1,9 @@
+{
+	"id": "keys",
+	"customer_id":"0100",
+	"num": 3,
+	"count_hotfile": true,
+	"duration_sec":2,
+	"last_modified_date": "2019-04-18T19:48:25.142172Z",
+	"keys": ["IP", "USER_AGENT", "ASN", "HEADER:Authorization", "JA3", "JA4", "COOKIE:test_cookie", "ARGS:test"]
+}

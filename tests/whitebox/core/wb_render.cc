@@ -88,7 +88,7 @@ TEST_CASE( "valid_render_html_test", "[load_valid_render_html]" ) {
                 int32_t l_s;
                 char *l_buf = NULL;
                 size_t l_len = 0;
-                ns_waflz::rqst_ctx *l_ctx = new ns_waflz::rqst_ctx(NULL, 0, NULL);
+                ns_waflz::rqst_ctx *l_ctx = new ns_waflz::rqst_ctx(NULL, 0, 0, NULL);
                 // -----------------------------------------
                 // no token
                 // -----------------------------------------

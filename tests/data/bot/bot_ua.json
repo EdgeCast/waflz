@@ -1,0 +1,127 @@
+{
+    "ahrefs": [
+        "AhrefsSiteAudit",
+        "AhrefsBot"
+    ],
+    "apple": [
+        "Applebot"
+    ],
+    "baidu": [
+        "Baiduspider"
+    ],
+    "facebook": [
+        "facebookexternalhit",
+        "facebookcatalog"
+    ],
+    "google": [
+        "googleweblight",
+        "Storebot-Google",
+        "Mediapartners-Google",
+        "Googlebot-Video",
+        "Googlebot-News",
+        "Googlebot-Image",
+        "Googlebot",
+        "Google-Read-Aloud",
+        "FeedFetcher-Google",
+        "DuplexWeb-Google",
+        "AdsBot-Google-Mobile-Apps",
+        "AdsBot-Google-Mobile",
+        "AdsBot-Google",
+        "APIs-Google"
+    ],
+    "msn": [
+        "bingbot",
+        "adidxbot",
+        "BingPreview"
+    ],
+    "semrush": [
+        "SplitSignalBot",
+        "SiteAuditBot",
+        "SemrushBot-SWA",
+        "SemrushBot-SI",
+        "SemrushBot-CT",
+        "SemrushBot-COUB",
+        "SemrushBot-BM",
+        "SemrushBot-BA"
+    ],
+    "twitter": [
+        "Twitterbot"
+    ],
+    "uptimerobot": [
+        "UptimeRobot"
+    ],
+    "yandex": [
+        "YandexWebmaster",
+        "YandexVideoParser",
+        "YandexVideo",
+        "YandexVertis",
+        "YandexVerticals",
+        "YandexTurbo",
+        "YandexTracker",
+        "YandexSpravBot",
+        "YandexSitelinks",
+        "YandexSearchShop",
+        "YandexScreenshotBot",
+        "YandexRCA",
+        "YandexPartner",
+        "YandexPagechecker",
+        "YandexOntoDBAPI",
+        "YandexOntoDB",
+        "YandexNews",
+        "YandexMobileScreenShotBot",
+        "YandexMobileBot",
+        "YandexMetrika",
+        "YandexMedia",
+        "YandexMarket",
+        "YandexImages",
+        "YandexImageResizer",
+        "YandexForDomain",
+        "YandexFavicons",
+        "YandexDirectDyn",
+        "YandexDirect",
+        "YandexCalendar",
+        "YandexBot",
+        "YandexBlogs",
+        "YandexAdNet",
+        "YandexAccessibilityBot"
+    ],
+    "other": [
+        "fr_bot",
+        "coccocbot",
+        "bingbot",
+        "archive.org_bot",
+        "YandexImages",
+        "YandexBot",
+        "UptimeRobot",
+        "Twitterbot",
+        "SiteAuditBot",
+        "SeznamBot",
+        "SemrushBot",
+        "SeekportBot",
+        "Qwantify",
+        "Pinterestbot",
+        "PingdomBot",
+        "PetalBot",
+        "PaperLiBot",
+        "Neevabot",
+        "Monsidobot",
+        "MojeekBot",
+        "Mail.RU_Bot",
+        "MJ12bot",
+        "Linespider",
+        "Googlebot",
+        "DnBCrawler",
+        "Discordbot",
+        "BingPreview",
+        "Baiduspider-render",
+        "Baiduspider-ads",
+        "Baiduspider",
+        "BPetalBot",
+        "AwarioSmartBot",
+        "Applebot",
+        "AppEngine-Google",
+        "AhrefsBot",
+        "AdsBot-Google",
+        "AASA-Bot"
+    ]
+}

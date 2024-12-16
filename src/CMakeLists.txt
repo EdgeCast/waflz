@@ -43,6 +43,10 @@ include_directories(
     # ------------------------------------------------------
     ${CMAKE_SOURCE_DIR}/ext/liblmdb/src
     # ------------------------------------------------------
+    # jwt
+    # ------------------------------------------------------
+    ${CMAKE_SOURCE_DIR}/ext/jwt-cpp
+    # ------------------------------------------------------
     # external libs
     # ------------------------------------------------------
     ${CMAKE_SOURCE_DIR}/ext
@@ -102,6 +106,7 @@ SET(SRCS
     support/trace.cc
     support/ndebug.cc
     support/base64.cc
+    support/curl_util.cc
     # ------------------------------------------------------
     # db
     # ------------------------------------------------------
@@ -135,6 +140,9 @@ SET(SRCS
     # ------------------------------------------------------
     core/waf.cc
     core/acl.cc
+    core/api_gw.cc
+    core/client_waf.cc
+    core/schema.cc
     core/engine.cc
     core/profile.cc
     core/decode.cc
@@ -147,8 +155,13 @@ SET(SRCS
     core/scopes.cc
     core/scopes_configs.cc
     core/rules.cc
+    core/bots.cc
+    core/bot_manager.cc
+    core/challenge.cc
+    core/captcha.cc
     core/resp_ctx.cc
     core/render_resp.cc
+    core/jwt_parser.cc
     # ------------------------------------------------------
     # limit
     # ------------------------------------------------------
@@ -194,14 +207,19 @@ SET_SOURCE_FILES_PROPERTIES(
     PROPERTIES LANGUAGE C
 )
 set(CMAKE_C_FLAGS "-std=c99")
-set(CMAKE_CXX_FLAGS "-Wall -Weffc++ -Werror -std=c++11")
+set(CMAKE_CXX_FLAGS "-Wall -Weffc++ -Werror -std=c++17")
 # ------------------------------------------------------------------------------
 # headers
 # ------------------------------------------------------------------------------
 SET(HDRS
     ${CMAKE_SOURCE_DIR}/include/waflz/acl.h
+    ${CMAKE_SOURCE_DIR}/include/waflz/api_gw.h
+    ${CMAKE_SOURCE_DIR}/include/waflz/client_waf.h
+    ${CMAKE_SOURCE_DIR}/include/waflz/schema.h
     ${CMAKE_SOURCE_DIR}/include/waflz/arg.h
     ${CMAKE_SOURCE_DIR}/include/waflz/atomic.h
+    ${CMAKE_SOURCE_DIR}/include/waflz/challenge.h
+    ${CMAKE_SOURCE_DIR}/include/waflz/captcha.h
     ${CMAKE_SOURCE_DIR}/include/waflz/city.h
     ${CMAKE_SOURCE_DIR}/include/waflz/config_parser.h
     ${CMAKE_SOURCE_DIR}/include/waflz/def.h
@@ -212,6 +230,8 @@ SET(HDRS
     ${CMAKE_SOURCE_DIR}/include/waflz/render.h
     ${CMAKE_SOURCE_DIR}/include/waflz/rqst_ctx.h
     ${CMAKE_SOURCE_DIR}/include/waflz/rules.h
+    ${CMAKE_SOURCE_DIR}/include/waflz/bots.h
+    ${CMAKE_SOURCE_DIR}/include/waflz/bot_manager.h
     ${CMAKE_SOURCE_DIR}/include/waflz/scopes_configs.h
     ${CMAKE_SOURCE_DIR}/include/waflz/scopes.h
     ${CMAKE_SOURCE_DIR}/include/waflz/trace.h
@@ -236,18 +256,25 @@ SET(HDRS
     # ------------------------------------------------------
     ${CMAKE_BINARY_DIR}/proto/acl.pb.h
     ${CMAKE_BINARY_DIR}/proto/action.pb.h
+    ${CMAKE_BINARY_DIR}/proto/bot_manager.pb.h
     ${CMAKE_BINARY_DIR}/proto/event.pb.h
     ${CMAKE_BINARY_DIR}/proto/limit.pb.h
     ${CMAKE_BINARY_DIR}/proto/profile.pb.h
     ${CMAKE_BINARY_DIR}/proto/request_info.pb.h
     ${CMAKE_BINARY_DIR}/proto/rule.pb.h
     ${CMAKE_BINARY_DIR}/proto/scope.pb.h
+    ${CMAKE_BINARY_DIR}/proto/api_gw.pb.h
+    ${CMAKE_BINARY_DIR}/proto/client_waf.pb.h
+    # ------------------------------------------------------
+    # op
+    # ------------------------------------------------------
+    ${CMAKE_SOURCE_DIR}/include/waflz/ac.h
+    ${CMAKE_SOURCE_DIR}/include/waflz/nms.h
     # ------------------------------------------------------
     # support
     # ------------------------------------------------------
     ${CMAKE_SOURCE_DIR}/src/support/file_util.h
-
-
+    ${CMAKE_SOURCE_DIR}/src/support/curl_util.h
 )
 if(BUILD_REDIS)
   list(APPEND HDRS
@@ -262,6 +289,11 @@ SET(PB_SRCS
 )
 set_source_files_properties(${PB_SRCS} PROPERTIES GENERATED TRUE)
 set_source_files_properties(${PB_SRCS} PROPERTIES COMPILE_FLAGS '-Wno-effc++')
+# ------------------------------------------------------------------------------
+#  JWT third party lib is not build with -effc++.
+# ------------------------------------------------------------------------------
+set_source_files_properties(core/jwt_parser.h PROPERTIES COMPILE_FLAGS '-Wno-effc++')
+set_source_files_properties(core/jwt_parser.cc PROPERTIES COMPILE_FLAGS '-Wno-effc++')
 # ------------------------------------------------------------------------------
 # library
 # ------------------------------------------------------------------------------
@@ -278,6 +310,7 @@ target_include_directories(waflzcore PUBLIC
     ${CMAKE_BINARY_DIR}
 )
 target_link_libraries(waflz
+    curl
     ssl
     crypto
     pcre

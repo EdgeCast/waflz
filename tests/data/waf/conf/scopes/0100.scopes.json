@@ -1,0 +1,87 @@
+{
+  "customer_id": "0100",
+  "account_type": "P",
+  "bot_tier": "A",
+  "partner_id": "this_is_the_partner_id",
+  "id":"3lTIzIqv",
+  "last_modified_date": "2019-04-18T19:48:25.142172Z",
+  "last_modified_by": "Mr. bananas",
+  "name": "To test different custom rules config",
+  "scopes": [
+    {
+      "id":"rl_scope_with_scope_file",
+      "name": "Scopes to test rl in blackbox",
+      "host": {
+        "is_negated": false,
+        "type": "EM",
+        "value": "rl_blackbox_test.com"
+      },
+      "path": {
+        "is_negated": false,
+        "type": "GLOB",
+        "value": "*"
+      },
+      "limits":[
+        {
+          "id":"keys",
+          "action":{
+              "duration_sec": 2,
+              "enf_type": "ALERT"
+          }
+        },
+        {
+          "id": "bot5c0r3",
+          "action":{
+              "id":"banana",
+              "name":"ddos-action",
+              "status": 403,
+              "duration_sec": 2,
+              "enf_type": "CUSTOM_RESPONSE",
+              "response_body_base64": "ZGRvcyBlbmZvcmNlbWVudCBmcm9tIGxpbWl0IGNvbmZpZwo="
+          }
+        }
+      ]
+    },
+  {
+    "id":"rl_scope",
+    "name": "Scopes to test rl in whitebox",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "rl_test.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "limits":[
+      {
+        "id":"audit_1",
+        "action":{
+            "duration_sec": 2,
+            "enf_type": "ALERT"
+        }
+      },
+      {
+        "id":"prod_1",
+        "action":{
+          "id":"zeAXrllT",
+          "name":"prod-action",
+          "status": 403,
+          "duration_sec": 2,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64": "ZGRvcyBlbmZvcmNlbWVudCBmcm9tIGJvdCBjb25maWcK"
+       }
+      },
+      {
+        "id":"audit_2",
+        "action":{
+          "duration_sec": 2,
+          "enf_type": "ALERT"
+        }
+      }
+    ]
+  }
+]
+}

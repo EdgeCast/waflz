@@ -39,11 +39,13 @@ def setup_waflz_server():
     l_ruleset_path = os.path.realpath(os.path.join(l_file_path, '../../data/waf/ruleset'))
     l_geoip2city_path = os.path.realpath(os.path.join(l_file_path, '../../data/waf/db/GeoLite2-City.mmdb'))
     l_geoip2ISP_path = os.path.realpath(os.path.join(l_file_path, '../../data/waf/db/GeoLite2-ASN.mmdb'))
+    l_bot_info_file = os.path.realpath(os.path.join(l_file_path, '../../data/bot/known_bot_info.json'))
     l_waflz_server_path = os.path.abspath(os.path.join(l_file_path, '../../../build/util/waflz_server/waflz_server'))
     l_subproc = subprocess.Popen([l_waflz_server_path,
                                   '-d', l_conf_dir,
                                   '-b', l_scopez_dir,
                                   '-r', l_ruleset_path,
+                                  '-Q', l_bot_info_file,
                                   '-g', l_geoip2city_path,
                                   '-s', l_geoip2ISP_path])
     time.sleep(1)
@@ -189,6 +191,7 @@ def test_scopes_dir_for_an_0050(setup_waflz_server):
     assert l_r_json['prod_profile']['sub_event'][0]['rule_msg'] == 'Request User-Agent is monkeez'
     assert 'account_type' in l_r_json['prod_profile']
     assert l_r_json['prod_profile']['account_type'] == 'P'
+    assert l_r_json['prod_profile']['bot_tier'] == 'A'
     assert 'partner_id' in l_r_json['prod_profile']
     assert l_r_json['prod_profile']['partner_id'] == 'this_is_the_partner_id'
 # ------------------------------------------------------------------------------
@@ -532,6 +535,20 @@ def test_limit_and_waf_with_scopes(setup_waflz_server_action):
     l_r = requests.get(l_uri, headers=l_headers)
     assert l_r.status_code == 403
     assert l_r.text == 'This is profile custom response\n'
+    # ------------------------------------------------------
+    # limit should fire after passing api_gw
+    # ------------------------------------------------------
+    l_uri = G_TEST_HOST+'/prod.html'
+    l_headers = { 'host': 'test_api_gw.com',
+                  'Content-Type': 'application/json',
+                  'waf-scopes-id': '0050'}
+    l_data = "{\"name\": \"Bob Bobberson\", \"Employee_ID\":1234}"
+    for x in range(2):
+        l_r = requests.get(l_uri, headers=l_headers, data=l_data)
+        assert l_r.status_code == 200
+    l_r = requests.get(l_uri, headers=l_headers)
+    assert l_r.status_code == 403
+    assert l_r.text == 'This is ddos custom response\n'
 # ------------------------------------------------------------------------------
 # test scopes operator
 # ------------------------------------------------------------------------------
@@ -649,6 +666,58 @@ def test_chained_custom_rules_in_scopes(setup_waflz_server_action):
     assert l_r.status_code == 403
     assert l_r.text == 'response from chained custom rules\n'
 # ------------------------------------------------------------------------------
+# custom rules test json body parsing
+# ------------------------------------------------------------------------------
+def test_custom_rules_body_parsing_in_scopes(setup_waflz_server_action):
+    # ------------------------------------------------------
+    # create request
+    # ------------------------------------------------------
+    l_uri = G_TEST_HOST+'/test.html'
+    l_headers = {'host': 'bodytest.com',
+                 'user-agent': 'monkey',
+                 'Content-Type': 'application/json',
+                 'waf-scopes-id': '0052'}
+    l_body = {
+        'email' : 'ps.switch.delivery@gmail.com',
+        'origin' : 'mobile',
+        'password' : 'ps654321'
+    }
+    l_r = requests.post(l_uri,
+                        headers=l_headers,
+                        data=json.dumps(l_body))
+    assert l_r.status_code == 403
+    l_r_json = l_r.json()
+    assert len(l_r_json) > 0
+    l_event = l_r_json['prod_profile']
+    #-------------------------------------------------------
+    # check we have an event
+    # ------------------------------------------------------
+    assert l_event['rule_intercept_status'] == 403
+    assert l_event['rule_msg'] == 'testing request bodies in custom rules'
+    assert l_event['sub_event'][0]['rule_op_param'] == 'ps654321'
+    #-------------------------------------------------------
+    # test an xml
+    # ------------------------------------------------------
+    l_body = """<?xml version="1.0" encoding="UTF-8"?>
+    <body>
+        <email>ps.switch.delivery@gmail.com</email>
+        <origin>mobile</origin>
+        <password>ps654321</password>
+    </body>
+    """
+    l_headers = {'host': 'bodytest.com',
+                 'user-agent': 'monkey',
+                 'Content-Type': 'text/xml',
+                 'waf-scopes-id': '0052'}
+    l_r = requests.post(l_uri,
+                        headers=l_headers,
+                        data=l_body)
+    assert l_r.status_code == 403
+    l_r_json = l_r.json()
+    assert len(l_r_json) > 0
+    assert l_event['rule_msg'] == 'testing request bodies in custom rules'
+    assert l_event['sub_event'][0]['rule_op_param'] == 'ps654321'
+# ------------------------------------------------------------------------------
 # test spoof header works
 # ------------------------------------------------------------------------------
 def test_spoof_header(setup_waflz_server_single):
@@ -700,6 +769,46 @@ def test_spoof_header(setup_waflz_server_single):
     l_r_json = l_r.json()
     assert 'audit_profile' in l_r_json
     assert not l_r_json['audit_profile']
+# ------------------------------------------------------------------------------
+# test bot_manager event has req data + customer id
+# ------------------------------------------------------------------------------
+def test_bot_manager_event_has_rqst_info(setup_waflz_server):
+    # ------------------------------------------------------
+    # create request
+    # ------------------------------------------------------
+    l_uri = G_TEST_HOST+'/test.html'
+    l_headers = {
+        'host': 'botmanagertest.com',
+        'User-Agent': 'Googlebot',
+        'waf-scopes-id': '0052',
+        'x-waflz-ip': '1.179.71.247'
+    }
+    # ------------------------------------------------------
+    # send request that should be blocked by ip
+    # ------------------------------------------------------
+    l_r = requests.get(l_uri, headers=l_headers)
+    # ------------------------------------------------------
+    # assert blocked by ip
+    # ------------------------------------------------------
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert 'sub_event' in l_r_json['bot_event']
+    assert l_r_json['bot_event']['sub_event'][0]['rule_id'] == 70000
+    # ------------------------------------------------------
+    # assert rqst info present
+    # ------------------------------------------------------
+    assert l_r_json['bot_event']['geoip_latitude'] == -33.494
+    assert l_r_json['bot_event']['is_anonymous_proxy'] == False
+    assert l_r_json['bot_event']['geoip_country_name'] == 'Australia'
+    # ------------------------------------------------------
+    # assert cust_id is present
+    # ------------------------------------------------------
+    assert 'req_info' in l_r_json['bot_event']
+    assert 'customer_id' in l_r_json['bot_event']['req_info']
+    # ------------------------------------------------------
+    # assert cust_id is value of the callback
+    # ------------------------------------------------------
+    assert l_r_json['bot_event']['req_info']['customer_id'] == 108221
 # ------------------------------------------------------------------------------
 # test parser behavior
 # ------------------------------------------------------------------------------
@@ -924,4 +1033,60 @@ def test_scopes_parser_behavior(setup_waflz_server_single):
     l_prod_event = l_r_json['prod_profile']
     assert l_audit_event['rule_intercept_status'] == 403
     assert l_audit_event['rule_msg'] == 'Inbound Anomaly Score Exceeded (Total Score: 5): Last Matched Message: '
+    assert l_prod_event is None
+# ------------------------------------------------------------------------------
+# test api gateway behavior
+# ------------------------------------------------------------------------------
+def test_api_gw_in_scopes(setup_waflz_server_single):
+    # ------------------------------------------------------
+    # test api_gw for AN 0050
+    # ------------------------------------------------------
+    l_uri = G_TEST_HOST+'/bananas.html'
+    l_headers = {'host': 'test_api_gw.com',
+                 'waf-scopes-id': '0050',
+                 'Content-Type': 'application/json'}
+    l_data = "{\"message\": \"success\"}"
+    l_r = requests.get(l_uri, headers=l_headers, data=l_data)
+    l_r_json = l_r.json()
+    assert l_r_json['audit_profile']["rule_msg"] == "Request JSON Schema Validation Error"
+    assert l_r_json['audit_profile']["sub_event"][0]["rule_msg"] == "required"
+    assert l_r_json['audit_profile']["api_gw_config_id"] == "qSMXE66R"
+    assert l_r_json['audit_profile']["schema_config_id"] == "A7QPbm0Z"
+    assert 'schema_error_offset' in l_r_json['audit_profile']["sub_event"][0]
+    assert l_r_json['prod_profile']["rule_msg"] == "Request JSON Schema Validation Error"
+    assert l_r_json['prod_profile']["sub_event"][0]["rule_msg"] == "required"
+    assert l_r_json['prod_profile']["api_gw_config_id"] == "nif70s89"
+    assert l_r_json['prod_profile']["schema_config_id"] == "D58gMFTz"
+    assert 'schema_error_offset' in l_r_json['prod_profile']["sub_event"][0]
+    # ------------------------------------------------------
+    # acl action for prod (Blacklist IP)
+    # api gateway action for audit (missing required field)
+    # ------------------------------------------------------
+    l_uri = G_TEST_HOST+'/prod.html'
+    l_headers = { 'host': 'test_api_gw.com',
+                  'x-waflz-ip': '2.2.2.2',
+                  'Content-Type': 'application/json',
+                  'waf-scopes-id': '0050'}
+    l_data = "{ }"
+    l_r = requests.get(l_uri, headers=l_headers, data=l_data)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert l_r_json['audit_profile']["rule_msg"] == "Request JSON Schema Validation Error"
+    assert l_r_json['audit_profile']["sub_event"][0]["rule_msg"] == "required"
+    assert l_r_json['audit_profile']["api_gw_config_id"] == "qSMXE66R"
+    assert l_r_json['audit_profile']["schema_config_id"] == "A7QPbm0Z"
+    assert 'schema_error_offset' in l_r_json['audit_profile']["sub_event"][0]
+    assert l_r_json['prod_profile']['sub_event'][0]['rule_msg'] == 'Blacklist IP match'
+    # ------------------------------------------------------
+    # Pass api gateway
+    # ------------------------------------------------------
+    l_uri = G_TEST_HOST+'/bananas.html'
+    l_headers = {'host': 'test_api_gw.com',
+                 'waf-scopes-id': '0050',
+                 'Content-Type': 'application/json'}
+    l_data = "{\"message\": \"success\", \"timestamp\":0}"
+    l_r = requests.get(l_uri, headers=l_headers, data=l_data)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    l_prod_event = l_r_json['prod_profile']
     assert l_prod_event is None

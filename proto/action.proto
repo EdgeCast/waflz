@@ -28,10 +28,25 @@ message enforcement {
                 IGNORE_CUSTOM_RESPONSE = 15;
                 IGNORE_DROP_REQUEST = 16;
                 RECAPTCHA = 17;
+                TARPIT = 18;
+                SILENT_CLOSE = 19;
+                IGNORE = 20;
+        }
+        enum header_type_t {
+                CUSTOM = 0;
+                WAF_SCORE = 1;
+                BOT_SCORE = 2;
+                KNOWN_BOT = 3;
+                BOT_SCORE_TAGS = 4;
+                WAF_TAGS = 5;
         }
         message header_t {
                 optional string key = 1;
                 optional string value = 2;
+                optional bool overwrite = 3;
+                optional bool enforce = 4;
+                optional header_type_t type = 5;
+
         }
         optional string id = 1;
         optional string name = 2;
@@ -48,6 +63,8 @@ message enforcement {
         optional bool display_default_error_page = 9;
         optional type_t enf_type = 10;
         optional bool is_custom_challenge = 11;
+        optional uint32 challenge_level = 12;
+        optional uint32 challenge_difficulty = 13;
         // Custom response
         optional uint32 status = 100;
         optional string response_body_base64 = 101;

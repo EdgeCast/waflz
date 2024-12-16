@@ -1498,7 +1498,7 @@ int32_t utf8_to_unicode(char **ao_buf,
                         // ---------------------------------
                         // encoding
                         // ---------------------------------
-                        l_data += snprintf(l_data, a_buf_len, "%%u%04x", l_d);
+                        l_data += sprintf(l_data, "%%u%04x", l_d);
                 }
                 // -----------------------------------------
                 // if first byte begins with binary 1110 it
@@ -1522,7 +1522,7 @@ int32_t utf8_to_unicode(char **ao_buf,
                         // ---------------------------------
                         // encoding
                         // ---------------------------------
-                        l_data += snprintf(l_data, a_buf_len, "%%u%04x", l_d);
+                        l_data += sprintf(l_data, "%%u%04x", l_d);
                 }
                 // -----------------------------------------
                 // If first byte begins with binary 11110 it
@@ -1555,7 +1555,7 @@ int32_t utf8_to_unicode(char **ao_buf,
                         // ---------------------------------
                         // encoding
                         // ---------------------------------
-                        l_data += snprintf(l_data, a_buf_len, "%%u%04x", l_d);
+                        l_data += sprintf(l_data, "%%u%04x", l_d);
                 }
                 // -----------------------------------------
                 // any other first byte is invalid (RFC 3629)
@@ -1825,6 +1825,7 @@ int32_t validate_utf8(bool &ao_valid,
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
 int32_t parse_args(arg_list_t &ao_arg_list,
+                   data_unordered_map_t& ao_arg_map,
                    uint32_t &ao_invalid_cnt,
                    const char *a_buf,
                    uint32_t a_buf_len,
@@ -1930,7 +1931,8 @@ int32_t parse_args(arg_list_t &ao_arg_list,
                                 // Empty parameter
                                 l_arg.m_val = NULL;
                                 l_arg.m_val_len = 0;
-                                //NDBG_PRINT("%.*s: %.*s\n", l_arg.m_key_len, l_arg.m_key, l_arg.m_val_len, l_arg.m_val);
+                                // NDBG_PRINT("%.*s: %.*s\n", l_arg.m_key_len, l_arg.m_key, l_arg.m_val_len, l_arg.m_val);
+                                ao_arg_map.insert( std::make_pair<data_t, data_t>( data_t{l_arg.m_key, l_arg.m_key_len}, data_t{l_arg.m_val, l_arg.m_val_len}));
                                 ao_arg_list.push_back(l_arg);
                                 l_arg.clear();
                                 // unchanged
@@ -1952,7 +1954,8 @@ int32_t parse_args(arg_list_t &ao_arg_list,
                                // Empty parameter
                                 l_arg.m_val = NULL;
                                 l_arg.m_val_len = 0;
-                                //NDBG_PRINT("%.*s: %.*s\n", l_arg.m_key_len, l_arg.m_key, l_arg.m_val_len, l_arg.m_val);
+                                // NDBG_PRINT("%.*s: %.*s\n", l_arg.m_key_len, l_arg.m_key, l_arg.m_val_len, l_arg.m_val);
+                                ao_arg_map.insert( std::make_pair<data_t, data_t>( data_t{l_arg.m_key, l_arg.m_key_len}, data_t{l_arg.m_val, l_arg.m_val_len}));
                                 ao_arg_list.push_back(l_arg);
                                 l_arg.clear();
                                 // unchanged
@@ -1969,7 +1972,8 @@ int32_t parse_args(arg_list_t &ao_arg_list,
                                                    l_val_orig_len);
                                 UNUSED(l_s);
                                 // TODO -check for error
-                                //NDBG_PRINT("%.*s: %.*s\n", l_arg.m_key_len, l_arg.m_key, l_arg.m_val_len, l_arg.m_val);
+                                // NDBG_PRINT("%.*s: %.*s\n", l_arg.m_key_len, l_arg.m_key, l_arg.m_val_len, l_arg.m_val);
+                                ao_arg_map.insert( std::make_pair<data_t, data_t>( data_t{l_arg.m_key, l_arg.m_key_len}, data_t{l_arg.m_val, l_arg.m_val_len}));
                                 ao_arg_list.push_back(l_arg);
                                 l_arg.clear();
                                 l_status = 0;
@@ -1986,7 +1990,8 @@ int32_t parse_args(arg_list_t &ao_arg_list,
         {
                 l_arg.m_val = NULL;
                 l_arg.m_val_len = 0;
-                //NDBG_PRINT("%.*s: %.*s\n", l_arg.m_key_len, l_arg.m_key, l_arg.m_val_len, l_arg.m_val);
+                // NDBG_PRINT("%.*s: %.*s\n", l_arg.m_key_len, l_arg.m_key, l_arg.m_val_len, l_arg.m_val);
+                ao_arg_map.insert( std::make_pair<data_t, data_t>( data_t{l_arg.m_key, l_arg.m_key_len}, data_t{l_arg.m_val, l_arg.m_val_len}));
                 ao_arg_list.push_back(l_arg);
         }
         if(l_buf) { free(l_buf); l_buf = NULL;}

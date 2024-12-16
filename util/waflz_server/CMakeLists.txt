@@ -25,6 +25,9 @@ SET(SRCS
   sx_limit.cc
   sx_scopes.cc
   sx_modsecurity.cc
+  sx_bot_manager.cc
+  sx_api_gw.cc
+  sx_schema.cc
   waflz_server.cc
 )
 # ------------------------------------------------------------------------------

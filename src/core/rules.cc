@@ -35,6 +35,7 @@ rules::rules(engine &a_engine):
         m_waf(NULL),
         m_id("__na__"),
         m_cust_id("__na__"),
+        m_team_config(false),
         m_name("__na__")
 {
 }
@@ -88,6 +89,7 @@ int32_t rules::load_file(const char *a_buf, uint32_t a_buf_len)
         m_id = m_waf->get_id();
         m_cust_id = m_waf->get_cust_id();
         m_name = m_waf->get_name();
+        m_team_config = m_waf->is_team_config();
         // -----------------------------------------
         // done...
         // -----------------------------------------
@@ -123,6 +125,7 @@ int32_t rules::load(void* a_js)
         m_id = m_waf->get_id();
         m_cust_id = m_waf->get_cust_id();
         m_name = m_waf->get_name();
+        m_team_config = m_waf->is_team_config();
         // -----------------------------------------
         // done...
         // -----------------------------------------
@@ -166,7 +169,7 @@ int32_t rules::process(waflz_pb::event **ao_event,
         // -------------------------------------------------
         // run phase 1 init
         // -------------------------------------------------
-        l_s = l_rqst_ctx->init_phase_1(m_engine.get_geoip2_mmdb(), NULL, NULL, NULL);
+        l_s = l_rqst_ctx->init_phase_1(m_engine, NULL, NULL, NULL);
         if(l_s != WAFLZ_STATUS_OK)
         {
                 WAFLZ_PERROR(m_err_msg, "performing rqst_ctx::init_phase_1");
@@ -244,7 +247,7 @@ int32_t rules::process_response(waflz_pb::event **ao_event,
         // -------------------------------------------------
         // run phase 3 init
         // -------------------------------------------------
-        l_s = l_resp_ctx->init_phase_3();
+        l_s = l_resp_ctx->init_phase_3(m_engine.get_geoip2_mmdb());
         if(l_s != WAFLZ_STATUS_OK)
         {
                 WAFLZ_PERROR(m_err_msg, "performing resp_ctx::init_phase_3");

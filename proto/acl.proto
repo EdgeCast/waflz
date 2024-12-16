@@ -14,6 +14,7 @@ message acl {
         optional string last_modified_date = 5;
         optional string last_modified_by = 6;
         optional bool super_capacity = 7;
+        optional bool team_config = 8;
         // -------------------------------------------------
         // lists
         // -------------------------------------------------
@@ -37,8 +38,6 @@ message acl {
         optional lists_t cookie = 105;
         optional lists_t user_agent = 106;
         optional lists_asn_t asn = 107;
-        optional lists_t sd_iso = 114;
-        optional bool allow_anonymous_proxy = 115;
         // -------------------------------------------------
         // request properties
         // -------------------------------------------------
@@ -48,6 +47,13 @@ message acl {
         repeated string disallowed_extensions = 111;
         repeated string disallowed_headers = 112;
         optional uint64 max_file_size = 113;
+        // -------------------------------------------------
+        // more acl's...
+        // -------------------------------------------------
+        optional lists_t sd_iso = 114;
+        optional bool allow_anonymous_proxy = 115;
+        optional lists_t ja3 = 116;
+        optional lists_t ja4 = 117;
         // -------------------------------------------------
         // response
         // -------------------------------------------------

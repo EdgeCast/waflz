@@ -1,4 +1,4 @@
-![waflz-ci](https://github.com/edgio/waflz/workflows/waflz-ci/badge.svg)
+![waflz-ci](https://github.com/edgioinc/waflz/workflows/waflz-ci/badge.svg)
 
 <p align="center">
 <img src="/docs/_images/waflz_white.svg" title="waflz" width="200"/>
@@ -16,13 +16,13 @@
 - [License](#license)
 
 ## Background
-An implementation of a WAF engine in c/c++ supporting processing a subset of ModSecurity rules functionalties, configurable with either json or ModSecurity rules.  waflz is optimized to support running many WAF profiles side by side, by using [faster](https://github.com/edgio/waflz/blob/master/src/op/nms.h "IP tree")/[smaller](https://github.com/edgio/waflz/blob/master/src/op/ac.h "Aho–Corasick") internal data types and sharing common ruleset data between the profiles -ie if multiple WAF profiles refer to the same ruleset(s), the ruleset(s) are loaded only once for all and shared in memory.
+An implementation of a WAF engine in c/c++ supporting processing a subset of ModSecurity rules functionalties, configurable with either json or ModSecurity rules.  waflz is optimized to support running many WAF profiles side by side, by using [faster](https://github.com/edgioinc/waflz/blob/master/include/waflz/nms.h "IP tree")/[smaller](https://github.com/edgioinc/waflz/blob/master/include/waflz/ac.h "Aho–Corasick") internal data types and sharing common ruleset data between the profiles -ie if multiple WAF profiles refer to the same ruleset(s), the ruleset(s) are loaded only once for all and shared in memory.
 
 ### Rationale
 The Edgio global edge platform is a multitenant CDN supporting our hundreds of thousands individual customer configurations from any given location.  The Edgio WAF supports running OWASP Core Rulesets as well as some third-party rulesets.  The performance and resource allocation of any given customer configuration has the potential of impacting others -ie eventually all configurations live in memory on a physical server in a "Point of Presence" (POP) in a datacenter.  It was important then to the Edgio CDN the WAF be as high performant, memory constrained, and deterministic as possible.
 
 ### Capabilities
-The open source standard implementation of the [ModSecurity Rules Engine](https://github.com/SpiderLabs/ModSecurity "ModSecurity") -while excellent, and extremely flexible for individuals' use-cases, could be problematic in a CDN, where performance is the product.  Several ModSecurity capabilities eg [SecRemoteRules](https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#SecRemoteRules "SecRemoteRules") and [inspectFile](https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#inspectFile "inspectFile"), were intentionally ommitted, due to potential performance impacts in a multitenant environment.  A list of currently supported variables, operators and transforms are listed in the [capabilities section of the docs](https://edgio.github.io/waflz/capabilities "waflz capabilities")
+The open source standard implementation of the [ModSecurity Rules Engine](https://github.com/SpiderLabs/ModSecurity "ModSecurity") -while excellent, and extremely flexible for individuals' use-cases, could be problematic in a CDN, where performance is the product.  Several ModSecurity capabilities eg [SecRemoteRules](https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#SecRemoteRules "SecRemoteRules") and [inspectFile](https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#inspectFile "inspectFile"), were intentionally ommitted, due to potential performance impacts in a multitenant environment.  A list of currently supported variables, operators and transforms are listed in the [capabilities section of the docs](https://edgioinc.github.io/waflz/capabilities "waflz capabilities")
 
 
 ## Install
@@ -53,29 +53,6 @@ $ ./build.sh
 ```sh
 cd ./build
 sudo make install
-```
-
-#### OS X
-
-##### Package Requirements (with Homebrew)
-```sh
-$ brew install cmake openssl protobuf libxml2 pcre dpkg rapidjson jq
-```
-
-##### Python Package Requirements
-```sh
-$ pip3 install -r requirements.txt
-```
-
-##### Build
-```sh
-$ ./build.sh
-```
-
-### Running Tests
-```sh
-$ cd ./build
-$ make test
 ```
 
 ### Source Code Layout
@@ -167,9 +144,4 @@ $ curl -s "http://localhost:12345/index.html" -H"Host:" | jq '.'
 ## Contribute
 
 - We welcome issues, questions and pull requests.
-
-
-## License
-
-This project is licensed under the terms of the Apache 2.0 open source license. Please refer to the `LICENSE-2.0.txt` file for the full terms.
 

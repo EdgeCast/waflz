@@ -12,7 +12,7 @@
 //! ----------------------------------------------------------------------------
 #include "catch/catch.hpp"
 #include "waflz/def.h"
-#include "op/ac.h"
+#include "waflz/ac.h"
 #include "support/ndebug.h"
 #include <string.h>
 //! ----------------------------------------------------------------------------
@@ -142,11 +142,11 @@ const char * const G_USER_AGENT_LIST[] = {
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-static int match_handler(ns_waflz::ac *a_ac, void *a_data)
+static int match_handler(ns_waflz::ac *a_ac, ns_waflz::node_t* a_current_node, void** a_data)
 {
-        if(a_data)
+        if(*a_data)
         {
-                uint32_t *l_count = (uint32_t *)a_data;
+                uint32_t *l_count = (uint32_t *)*a_data;
                 *l_count = *l_count + 1;
         }
         //NDBG_OUTPUT("position: %u found: ", ao_match->m_pos);
@@ -235,14 +235,70 @@ TEST_CASE( "ac basic test", "[ac_basic]" ) {
                 //l_ac->display();
                 bool l_s;
                 uint32_t l_match_count = 0;
+                void* l_match_count_ptr = static_cast<void*>(&l_match_count);
                 std::string l_match_str;
                 l_s = l_ac->find("cat and dog and fart and foxes are cool faxes",
                                  strlen("cat and dog and fart and foxes are cool faxes"),
                                  l_match_str,
                                  match_handler,
-                                 &l_match_count);
+                                 &l_match_count_ptr);
                 REQUIRE((l_s == true));
                 REQUIRE((l_match_count == 3));
+                // clean up
+                if(l_ac)
+                {
+                        delete l_ac;
+                }
+        }
+        // -------------------------------------------------
+        // nullptr check
+        // -------------------------------------------------
+        SECTION("ac empty buffer test") {
+                ns_waflz::ac *l_ac = NULL;
+                l_ac = new ns_waflz::ac();
+                REQUIRE((l_ac != NULL));
+                uint32_t l_size = ARRAY_SIZE(G_USER_AGENT_LIST);
+                for(uint32_t i_p = 0; i_p < l_size; ++i_p)
+                {
+                        int32_t l_s;
+                        l_s = l_ac->add(G_USER_AGENT_LIST[i_p], strlen(G_USER_AGENT_LIST[i_p]));
+                        REQUIRE((l_s == WAFLZ_STATUS_OK));
+                }
+                l_ac->finalize();
+                std::string l_match_str;
+                REQUIRE((l_ac->find_first(nullptr, 0, l_match_str ) == WAFLZ_STATUS_OK));
+                REQUIRE((l_ac->find_first(nullptr, 20, l_match_str ) == WAFLZ_STATUS_OK));
+                // clean up
+                if(l_ac)
+                {
+                        delete l_ac;
+                }
+        }
+        // -------------------------------------------------
+        // data package check
+        // -------------------------------------------------
+        SECTION("ac data package") {
+                std::vector<uint32_t> l_random_data;
+                ns_waflz::ac *l_ac = new ns_waflz::ac();
+                REQUIRE((l_ac != NULL));
+                uint32_t l_size = ARRAY_SIZE(G_USER_AGENT_LIST);
+                for(uint32_t i_p = 0; i_p < l_size; ++i_p)
+                {
+                        l_random_data.emplace_back(i_p);
+                }
+                for(uint32_t i_p = 0; i_p < l_size; ++i_p)
+                {
+                        int32_t l_s;
+                        l_s = l_ac->add(G_USER_AGENT_LIST[i_p], strlen(G_USER_AGENT_LIST[i_p]), (void*) &l_random_data[i_p]);
+                        REQUIRE((l_s == WAFLZ_STATUS_OK));
+                }
+                l_ac->finalize();
+                std::string l_match_str;
+                uint32_t* l_num_for_ua = nullptr;
+                int32_t l_s = l_ac->find_with_data(G_USER_AGENT_LIST[23], strlen(G_USER_AGENT_LIST[23]), l_match_str, (void**) &l_num_for_ua);
+                REQUIRE(l_s == true);
+                REQUIRE(l_match_str == G_USER_AGENT_LIST[23]);
+                REQUIRE((*l_num_for_ua) == 23);
                 // clean up
                 if(l_ac)
                 {

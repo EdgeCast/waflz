@@ -185,6 +185,226 @@
           },
           "hidden": false
       }
+    },
+    {
+      "sec_rule": {
+          "variable": [
+              {
+                  "type": "JA4",
+                  "is_count": false
+              }
+          ],
+          "operator": {
+              "type": "CONTAINS",
+              "value": "t12i1314h2_f57a46bbacb6_3939823b2ae2",
+              "is_regex": false,
+              "is_negated": false
+          },
+          "action": {
+              "id": "960008",
+              "msg": "ja4 is fishy",
+              "action_type": "BLOCK",
+              "phase": 2,
+              "setvar": [
+                  {
+                      "scope": "TX",
+                      "var": "msg",
+                      "op": "ASSIGN",
+                      "val": "%{rule.msg}"
+                  },
+                  {
+                    "op": "INCREMENT",
+                    "scope": "TX",
+                    "val": "%{tx.warning_anomaly_score}",
+                    "var": "anomaly_score_pl1"
+                  }
+              ],
+              "t": [
+                  "NONE"
+              ]
+          },
+          "hidden": false
+      }
+    },
+    {
+      "sec_rule": {
+          "variable": [
+              {
+                  "type": "JA4_A",
+                  "is_count": false
+              }
+          ],
+          "operator": {
+              "type": "CONTAINS",
+              "value": "t12i1314h2",
+              "is_regex": false,
+              "is_negated": false
+          },
+          "action": {
+              "id": "960008",
+              "msg": "ja4_a is fishy",
+              "action_type": "BLOCK",
+              "phase": 2,
+              "setvar": [
+                  {
+                      "scope": "TX",
+                      "var": "msg",
+                      "op": "ASSIGN",
+                      "val": "%{rule.msg}"
+                  },
+                  {
+                    "op": "INCREMENT",
+                    "scope": "TX",
+                    "val": "%{tx.warning_anomaly_score}",
+                    "var": "anomaly_score_pl1"
+                  }
+              ],
+              "t": [
+                  "NONE"
+              ]
+          },
+          "hidden": false
+      }
+    },
+    {
+      "sec_rule": {
+          "variable": [
+              {
+                  "type": "JA4_B",
+                  "is_count": false
+              }
+          ],
+          "operator": {
+              "type": "CONTAINS",
+              "value": "f57a46bbacb6",
+              "is_regex": false,
+              "is_negated": false
+          },
+          "action": {
+              "id": "960008",
+              "msg": "ja4_b is fishy",
+              "action_type": "BLOCK",
+              "phase": 2,
+              "setvar": [
+                  {
+                      "scope": "TX",
+                      "var": "msg",
+                      "op": "ASSIGN",
+                      "val": "%{rule.msg}"
+                  },
+                  {
+                    "op": "INCREMENT",
+                    "scope": "TX",
+                    "val": "%{tx.warning_anomaly_score}",
+                    "var": "anomaly_score_pl1"
+                  }
+              ],
+              "t": [
+                  "NONE"
+              ]
+          },
+          "hidden": false
+      }
+    },
+    {
+      "sec_rule": {
+          "variable": [
+              {
+                  "type": "JA4_C",
+                  "is_count": false
+              }
+          ],
+          "operator": {
+              "type": "CONTAINS",
+              "value": "3939823b2ae2",
+              "is_regex": false,
+              "is_negated": false
+          },
+          "action": {
+              "id": "960008",
+              "msg": "ja4_c is fishy",
+              "action_type": "BLOCK",
+              "phase": 2,
+              "setvar": [
+                  {
+                      "scope": "TX",
+                      "var": "msg",
+                      "op": "ASSIGN",
+                      "val": "%{rule.msg}"
+                  },
+                  {
+                    "op": "INCREMENT",
+                    "scope": "TX",
+                    "val": "%{tx.warning_anomaly_score}",
+                    "var": "anomaly_score_pl1"
+                  }
+              ],
+              "t": [
+                  "NONE"
+              ]
+          },
+          "hidden": false
+      }
+    },
+    {
+      "sec_rule": {
+        "action": {
+          "id": "66000201",
+          "msg": "Apache Struts unsafe file upload request (CVE-2023-50164)",
+          "t": [
+            "NONE"
+          ],
+          "phase": 2,
+          "action_type": "BLOCK"
+        },
+        "chained_rule": [
+          {
+            "action": {
+              "t": [
+                "LOWERCASE",
+                "REMOVENULLS",
+                "URLDECODE"
+              ],
+              "setvar": [
+                {
+                  "op": "INCREMENT",
+                  "scope": "TX",
+                  "val": "%{tx.warning_anomaly_score}",
+                  "var": "anomaly_score_pl1"
+                },
+                {
+                  "op": "ASSIGN",
+                  "scope": "TX",
+                  "val": "%{rule.msg}",
+                  "var": "msg"
+                }
+              ]
+            },
+            "operator": {
+              "type": "CONTAINS",
+              "value": "upload.action"
+            },
+            "variable": [
+              {
+                "match": [],
+                "type": "REQUEST_BODY"
+              }
+            ]
+          }
+        ],
+        "id": "nq3lJf8N",
+        "name": "Apache Struts unsafe file upload request",
+        "operator": {
+          "type": "RX",
+          "value": "POST|PUT"
+        },
+        "variable": [
+          {
+            "match": [],
+            "type": "REQUEST_METHOD"
+          }
+        ]
+      }
     }
   ],
   "id": "nTCd8ghw",

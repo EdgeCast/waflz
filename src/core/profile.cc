@@ -20,7 +20,6 @@
 #include "support/file_util.h"
 #include "support/time_util.h"
 #include "op/regex.h"
-#include "op/nms.h"
 #include "waflz/def.h"
 #include "waflz/city.h"
 #include "waflz/engine.h"
@@ -81,6 +80,7 @@ profile::profile(engine &a_engine):
         m_waf(NULL),
         m_id(),
         m_cust_id(),
+        m_team_config(false),
         m_name(),
         m_resp_header_name(),
         m_action(waflz_pb::enforcement_type_t_NOP),
@@ -367,6 +367,11 @@ int32_t profile::init(void)
                         return WAFLZ_STATUS_ERROR;
                 }
         }
+        // -------------------------------------------------
+        // add recaptcha cookie in ignore list for all
+        // profiles
+        // -------------------------------------------------
+        regex_list_add(CAPTCHA_GOOGLE_TOKEN, m_il_cookie);
         m_init = true;
         return WAFLZ_STATUS_OK;
 }
@@ -410,6 +415,10 @@ int32_t profile::validate(void)
         {
                 m_cust_id = m_pb->customer_id();
         }
+        if (m_pb->has_team_config())
+        {
+                m_team_config = m_pb->team_config();
+        }
         // -------------------------------------------------
         // general settings
         // -------------------------------------------------
@@ -452,21 +461,104 @@ int32_t profile::validate(void)
         // -------------------------------------------------
         // TODO ???
         // -------------------------------------------------
+        // custom scores --optional
+        // -------------------------------------------------
+        if (l_pb.custom_scores_size())
+        {
+                for (int32_t i_r = 0; i_r < l_pb.custom_scores_size(); ++i_r)
+                {
+                        const waflz_pb::profile_custom_score_t &l_r =
+                            l_pb.custom_scores(i_r);
+                        // ---------------------------------
+                        // check if there is a rule id
+                        // or rule_id_list
+                        // ---------------------------------
+                        if (!l_r.has_rule_id() && l_r.rule_id_list_size() == 0)
+                        {
+                                WAFLZ_PERROR(
+                                    m_err_msg,
+                                    "missing rule_id and rule_id_list field");
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                        // ---------------------------------
+                        // verify score is over 0
+                        // ---------------------------------
+                        VERIFY_HAS(l_r, score);
+                        if ( l_r.score() <= 0 )
+                        {
+                                WAFLZ_PERROR(
+                                    m_err_msg,
+                                    "score must be over 0");
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                }
+        }
+        // -------------------------------------------------
         // rule target updates --optional
         // -------------------------------------------------
-        if(l_pb.rule_target_updates_size())
+        if (l_pb.rule_target_updates_size())
         {
                 for(int32_t i_r = 0;
                     i_r < l_pb.rule_target_updates_size();
                     ++i_r)
                 {
                         const waflz_pb::profile_rule_target_update_t& l_r = l_pb.rule_target_updates(i_r);
-                        VERIFY_HAS(l_r, rule_id);
+                        // ---------------------------------
+                        // check if there is a rule id
+                        // or rule_id_list
+                        // ---------------------------------
+                        if ( !l_r.has_rule_id() && l_r.rule_id_list_size() == 0 ){
+                                WAFLZ_PERROR(m_err_msg, "missing rule_id and rule_id_list field");
+                                return WAFLZ_STATUS_ERROR;
+                        }
                         VERIFY_HAS(l_r, target);
                         VERIFY_HAS(l_r, target_match);
                         VERIFY_HAS(l_r, is_regex);
                 }
         }
+        // -------------------------------------------------
+        // redacted variables
+        // -------------------------------------------------
+        if ( l_pb.redacted_variables_size() )
+        {
+                for (int32_t i_r = 0;
+                    i_r < l_pb.redacted_variables_size();
+                    ++i_r)
+                {
+                        // ---------------------------------
+                        // get redacted variable
+                        // ---------------------------------
+                        const waflz_pb::profile_redacted_var_t& l_r = l_pb.redacted_variables(i_r);
+                        // ---------------------------------
+                        // verify has information
+                        // ---------------------------------
+                        VERIFY_HAS(l_r, match_on);
+                        VERIFY_HAS(l_r, replacement_value);
+                        // ---------------------------------
+                        // verify regex is correctly formed
+                        // ---------------------------------
+                        int32_t l_s;
+                        regex* l_pcre = new regex();
+                        const std::string& l_rx = l_r.match_on();
+                        l_s = l_pcre->init(l_rx.c_str(), l_rx.length());
+                        if (l_s != WAFLZ_STATUS_OK)
+                        {
+                                const char* l_err_ptr;
+                                int l_err_off;
+                                l_pcre->get_err_info(&l_err_ptr, l_err_off);
+                                WAFLZ_PERROR(m_err_msg, "Failed to init re from %s. Reason: %s -offset: %d",
+                                             l_rx.c_str(),
+                                             l_err_ptr,
+                                             l_err_off);
+                                if (l_pcre) { delete l_pcre; l_pcre = NULL; }
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                        if (l_pcre) { delete l_pcre; l_pcre = NULL; }
+                }
+        }
+        // -------------------------------------------------
+        // validated
+        // -------------------------------------------------
         return WAFLZ_STATUS_OK;
 }
 
@@ -508,7 +600,7 @@ int32_t profile::process_response(waflz_pb::event **ao_event,
         // -------------------------------------------------
         // run phase 3 init
         // -------------------------------------------------
-        l_s = l_resp_ctx->init_phase_3();
+        l_s = l_resp_ctx->init_phase_3(m_engine.get_geoip2_mmdb());
         if(l_s != WAFLZ_STATUS_OK)
         {
                 WAFLZ_PERROR(m_err_msg, "performing resp_ctx::init_phase_3");
@@ -610,7 +702,7 @@ int32_t profile::process(waflz_pb::event **ao_event,
         // -------------------------------------------------
         // run phase 1 init
         // -------------------------------------------------
-        l_s = l_rqst_ctx->init_phase_1(m_engine.get_geoip2_mmdb(), &m_il_query, &m_il_header, &m_il_cookie);
+        l_s = l_rqst_ctx->init_phase_1(m_engine, &m_il_query, &m_il_header, &m_il_cookie);
         if(l_s != WAFLZ_STATUS_OK)
         {
                 WAFLZ_PERROR(m_err_msg, "performing rqst_ctx::init_phase_1");
@@ -636,7 +728,7 @@ int32_t profile::process(waflz_pb::event **ao_event,
                 l_s = m_waf->process(&l_event, a_ctx, &l_rqst_ctx);
                 if(l_s != WAFLZ_STATUS_OK)
                 {
-                        WAFLZ_PERROR(m_err_msg, "%s", m_waf->get_err_msg());
+                        WAFLZ_PERROR(m_err_msg, "waf error %.*s", WAFLZ_ERR_REASON_LEN, m_waf->get_err_msg());
                         if(!ao_rqst_ctx && l_rqst_ctx) { delete l_rqst_ctx; l_rqst_ctx = NULL; }
                         return WAFLZ_STATUS_ERROR;
                 }

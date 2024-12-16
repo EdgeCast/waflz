@@ -36,7 +36,7 @@ public:
         // -------------------------------------------------
         // public methods
         // -------------------------------------------------
-        sx_limit(ns_waflz::kv_db &a_db);
+        sx_limit(ns_waflz::engine& a_engine, ns_waflz::kv_db &a_db);
         ~sx_limit(void);
         int32_t init(void);
         ns_is2::h_resp_t handle_rqst(waflz_pb::enforcement **ao_enf,
@@ -44,6 +44,14 @@ public:
                                      ns_is2::session &a_session,
                                      ns_is2::rqst &a_rqst,
                                      const ns_is2::url_pmap_t &a_url_pmap);
+        ns_is2::h_resp_t handle_resp(waflz_pb::enforcement **ao_enf,
+                                     ns_waflz::resp_ctx **ao_ctx,
+                                     ns_waflz::header_map_t** ao_headers,
+                                     ns_is2::subr &a_subr,
+                                     ns_waflz_server::waf_resp_pkg &a_resp_pkg)
+        {
+                return ns_is2::H_RESP_DONE;
+        }
         // -------------------------------------------------
         // public members
         // -------------------------------------------------
@@ -52,6 +60,7 @@ public:
         ns_waflz::geoip2_mmdb* m_geoip2_mmdb;
         std::string m_geoip2_db;
         std::string m_geoip2_isp_db;
+        ns_waflz::engine& m_engine;
 private:
         // -------------------------------------------------
         // enforcements

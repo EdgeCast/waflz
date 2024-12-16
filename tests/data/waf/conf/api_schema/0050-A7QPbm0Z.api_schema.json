@@ -1,0 +1,29 @@
+{ 
+    "id": "A7QPbm0Z",
+    "api_gw_id": "qSMXE66R",
+    "customer_id": "0050",
+    "last_modified_date": "2019-04-18T19:48:25.142172Z",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "name": { "type": "string", "pattern": "[A-Z][a-z]+ [A-Z][a-z]+"},
+            "Employee_ID": { "type": "number", "minimum": 0, "maximum": 9999},
+            "is_cool":{ "type": "boolean" },
+            "pet": { 
+                    "type": "object",
+                    "properties": {
+                        "color": {
+                            "enum": ["orange", "black", "white", "multi"]
+                        }
+                    }
+                },
+            "favorite_numbers": {
+                "type":"array",
+                "items": { "type":"integer" },
+                "minItems": 1,
+                "uniqueItems": true
+            }
+        },
+        "required": ["name", "Employee_ID"]
+    }
+}

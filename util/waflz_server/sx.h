@@ -15,8 +15,11 @@
 #include <stdint.h>
 #include "is2/srvr/session.h"
 #include "is2/srvr/rqst.h"
+#include "is2/srvr/resp.h"
 #include "is2/srvr/lsnr.h"
 #include "waflz/rqst_ctx.h"
+#include "waflz/client_waf.h"
+#include <cb.h>
 //: ----------------------------------------------------------------------------
 //: fwd decl's
 //: ----------------------------------------------------------------------------
@@ -57,6 +60,20 @@ public:
         {
                 return a_sx.handle_rqst(ao_enf, ao_ctx, a_session, a_rqst, a_url_pmap);
         }
+        virtual ns_is2::h_resp_t handle_resp(waflz_pb::enforcement **ao_enf,
+                                             ns_waflz::resp_ctx **ao_ctx,
+                                             ns_waflz::header_map_t** ao_headers,
+                                             ns_is2::subr &a_subr,
+                                             ns_waflz_server::waf_resp_pkg &a_resp_pkg) = 0;
+        static ns_is2::h_resp_t s_handle_resp(sx &a_sx,
+                                              waflz_pb::enforcement **ao_enf,
+                                              ns_waflz::resp_ctx **ao_ctx,
+                                              ns_waflz::header_map_t** ao_headers,
+                                              ns_is2::subr &a_subr,
+                                              ns_waflz_server::waf_resp_pkg &a_resp_pkg)
+        {
+                return a_sx.handle_resp(ao_enf, ao_ctx, ao_headers, a_subr, a_resp_pkg);
+        }
         // -------------------------------------------------
         // public members
         // -------------------------------------------------
@@ -64,6 +81,7 @@ public:
         std::string m_config;
         std::string m_resp;
         const ns_waflz::rqst_ctx_callbacks *m_callbacks;
+        const ns_waflz::resp_ctx_callbacks *m_resp_callbacks;
 };
 }
 #endif

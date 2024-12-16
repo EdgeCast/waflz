@@ -53,5 +53,10 @@
     "accesslist": [".* are cool"],
     "blacklist":  ["cats are cool"]
   },
+  "ja4": {
+    "blacklist": [],
+    "accesslist": ["can access ja4"],
+    "whitelist": ["still can access ja4"]
+  },
   "version": "0.0.0"
 }

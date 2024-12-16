@@ -18,8 +18,8 @@
 #include "core/decode.h"
 #include "support/ndebug.h"
 #include "op/regex.h"
-#include "op/ac.h"
-#include "op/nms.h"
+#include "waflz/ac.h"
+#include "waflz/nms.h"
 #include "op/byte_range.h"
 #include "op/luhn.h"
 #include "libinjection/src/libinjection.h"
@@ -111,7 +111,10 @@ OP(EQ)
         {
                 l_in_val = a_len;
         }
-        l_in_val = strntol(a_buf, a_len, &l_end_ptr, 10);
+        else
+        {
+                l_in_val = strntol(a_buf, a_len, &l_end_ptr, 10);
+        }
         if((l_in_val == LONG_MAX) ||
            (l_in_val == LONG_MIN))
         {
@@ -725,7 +728,7 @@ OP(WITHIN)
 //! ----------------------------------------------------------------------------
 OP(IPMATCH)
 {
-        //NDBG_PRINT("a_op: %s%s%s\n", ANSI_COLOR_FG_GREEN, a_op.ShortDebugString().c_str(), ANSI_COLOR_OFF);
+        // NDBG_PRINT("a_op: %s%s%s\n", ANSI_COLOR_FG_GREEN, a_op.ShortDebugString().c_str(), ANSI_COLOR_OFF);
         ao_match = false;
         if(!a_buf ||
            !a_len)
@@ -966,8 +969,17 @@ OP(RX)
         // regex match...
         // -------------------------------------------------
         regex *l_rx = (regex *)(a_op._reserved_1());
+        // -------------------------------------------------
+        // check if regex has been compiled..
+        // -------------------------------------------------
+        if(l_rx == NULL)
+        {
+                return WAFLZ_STATUS_OK;
+        }
         int32_t l_s;
+        // -------------------------------------------------
         // get capture
+        // -------------------------------------------------
         data_list_t l_data_list;
         std::string l_capture;
         l_s = l_rx->compare_all(a_buf, a_len, &l_data_list);
@@ -1140,6 +1152,13 @@ OP(VERIFYCC)
         // regex match...
         // -------------------------------------------------
         regex *l_rx = (regex *)(a_op._reserved_1());
+        // -------------------------------------------------
+        // check if regex has been compiled..
+        // -------------------------------------------------
+        if(l_rx == NULL)
+        {
+                return WAFLZ_STATUS_OK;
+        }
         int32_t l_s;
         // get capture
         data_list_t l_data_list;

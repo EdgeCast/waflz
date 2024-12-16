@@ -11,6 +11,7 @@ import sys
 import json
 import time
 import requests
+import base64
 # ------------------------------------------------------------------------------
 # Constants
 # ------------------------------------------------------------------------------
@@ -131,6 +132,10 @@ def test_bb_acl_accesslists_01_interactions(setup_waflz_server):
     l_r_json = l_r.json()
     assert len(l_r_json) > 0
     assert 'Accesslist deny' in l_r_json['rule_msg']
+    l_matched_var_name = 'Accesslist'
+    l_matched_var_value = 'ja4 subdivision user-agent'
+    assert l_matched_var_name == base64.b64decode(l_r_json['sub_event'][0]['matched_var']['name']).decode("utf-8")
+    assert l_matched_var_value == base64.b64decode(l_r_json['sub_event'][0]['matched_var']['value']).decode("utf-8")
     # ------------------------------------------------------
     # Whitelist allow KR IP Address with blacklist UA 
     # ------------------------------------------------------
@@ -194,4 +199,49 @@ def test_bb_acl_accesslists_01_interactions(setup_waflz_server):
     assert len(l_r_json) > 0
     assert 'Blacklist Subdivision match' in l_r_json['rule_msg']
 
-
+# ------------------------------------------------------------------------------
+# 
+# ------------------------------------------------------------------------------
+def test_ja4_lists(setup_waflz_server):
+    """
+    Testing ja4 {white,access}list
+    """
+    # ------------------------------------------------------
+    # whitelist
+    # ------------------------------------------------------
+    l_uri = G_TEST_HOST
+    l_headers = {
+        'host': 'myhost.com',
+        'x-waflz-ja4': "still can access ja4"
+    }
+    l_r = requests.get(l_uri, headers=l_headers)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert 'status' in l_r_json
+    assert l_r_json['status'] == 'ok'
+    # ------------------------------------------------------
+    # accesslist
+    # ------------------------------------------------------
+    l_uri = G_TEST_HOST
+    l_headers = {
+        'host': 'myhost.com',
+        'x-waflz-ja4': "can access ja4"
+    }
+    l_r = requests.get(l_uri, headers=l_headers)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert 'status' in l_r_json
+    assert l_r_json['status'] == 'ok'
+    # ------------------------------------------------------
+    # not acesslist
+    # ------------------------------------------------------
+    l_uri = G_TEST_HOST
+    l_headers = {
+        'host': 'myhost.com',
+        'x-waflz-ja4': "not access list ja4"
+    }
+    l_r = requests.get(l_uri, headers=l_headers)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert len(l_r_json) > 0
+    assert 'Accesslist deny' in l_r_json['rule_msg']

@@ -62,6 +62,7 @@ public:
         const std::string& get_cust_id(void) { return m_cust_id; };
         const std::string& get_name(void) { return m_name; };
         const waflz_pb::sec_config_t* get_pb(void);
+        bool is_team_config(void) { return m_team_config; }
 private:
         // -------------------------------------------------
         // private methods
@@ -87,6 +88,7 @@ private:
         // -------------------------------------------------
         std::string m_id;
         std::string m_cust_id;
+        bool m_team_config;
         std::string m_name;
 };
 }

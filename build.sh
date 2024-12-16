@@ -61,9 +61,10 @@ main() {
     fi
 
     make -j${NPROC} && \
-    make test && \
+    make CTEST_OUTPUT_ON_FAILURE=1 test && \
     umask 0022 && chmod -R a+rX . && \
     make package && \
+    make release && \
     popd && \
     exit $?
 }

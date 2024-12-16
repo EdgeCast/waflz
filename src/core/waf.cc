@@ -20,7 +20,6 @@
 #include "waflz/profile.h"
 #include "waflz/trace.h"
 #include "waflz/string_util.h"
-#include "op/ac.h"
 #include "support/ndebug.h"
 #include "support/file_util.h"
 #include "support/time_util.h"
@@ -65,6 +64,37 @@ static void mark_tx_applied(ns_waflz::rqst_ctx *a_ctx,
         }
 }
 //! ----------------------------------------------------------------------------
+//! \details: checks if the given string is a tx score key
+//! \return:  true if the given param is a score key - otherwise false
+//! \param:   a_var_key: a string to check
+//! ----------------------------------------------------------------------------
+bool tx_val_is_score( const std::string& a_var_key )
+{
+        // -------------------------------------------------
+        // all score keys
+        // -------------------------------------------------
+        if (a_var_key == "anomaly_score_pl1" || 
+            a_var_key == "anomaly_score_pl2" || 
+            a_var_key == "anomaly_score_pl3" || 
+            a_var_key == "anomaly_score_pl4" || 
+            a_var_key == "inbound_anomaly_score_pl1" || 
+            a_var_key == "inbound_anomaly_score_pl2" || 
+            a_var_key == "inbound_anomaly_score_pl3" || 
+            a_var_key == "inbound_anomaly_score_pl4" || 
+            a_var_key == "outbound_anomaly_score_pl1" || 
+            a_var_key == "outbound_anomaly_score_pl2" || 
+            a_var_key == "outbound_anomaly_score_pl3" || 
+            a_var_key == "outbound_anomaly_score_pl4"
+        )
+        {
+                return true;
+        }
+        // -------------------------------------------------
+        // return not found
+        // -------------------------------------------------
+        return false;
+}
+//! ----------------------------------------------------------------------------
 //! \details: TODO
 //! \return:  TODO
 //! \param:   TODO
@@ -79,6 +109,9 @@ waf::waf(engine &a_engine):
         // -------------------------------------------------
         m_compiled_config(NULL),
         m_ctype_parser_map(a_engine.get_ctype_parser_map()),
+        m_rtu_variable_map(),
+        m_custom_score_map(),
+        m_redacted_vars(),
         m_mx_rule_list()
 #ifdef WAFLZ_NATIVE_ANOMALY_MODE
         ,m_anomaly_score_cur(0),
@@ -93,7 +126,8 @@ waf::waf(engine &a_engine):
         m_paranoia_level(1),
         m_no_log_matched(false),
         m_parse_xml(true),
-        m_parse_json(true)
+        m_parse_json(true),
+        m_team_config(false)
 {
         m_compiled_config = new compiled_config_t();
 }
@@ -106,14 +140,18 @@ waf::~waf()
 {
         if(m_compiled_config) { delete m_compiled_config; m_compiled_config = NULL; }
         if(m_pb) { delete m_pb; m_pb = NULL; }
-        for(directive_list_t::iterator i_d = m_mx_rule_list.begin();
-            i_d != m_mx_rule_list.end();
-            ++i_d)
+        for (directive_list_t::iterator i_d = m_mx_rule_list.begin();
+             i_d != m_mx_rule_list.end();
+             ++i_d)
         {
                 if(!*i_d) { continue; }
                 delete *i_d;
                 *i_d = NULL;
         }
+        // ---------------------------------------
+        // removing regex for redacted vars
+        // ---------------------------------------
+        this->clear_redacted_variables_list();
 }
 //! ----------------------------------------------------------------------------
 //! \details: TODO
@@ -139,6 +177,21 @@ void waf::show_status(void)
         m_parser.show_status();
 }
 #endif
+//! ----------------------------------------------------------------------------
+//! \details: clears the regexs in the redacted variables list
+//! ----------------------------------------------------------------------------
+void waf::clear_redacted_variables_list()
+{
+        for(redacted_var_list_t::iterator i_d = m_redacted_vars.begin();
+            i_d != m_redacted_vars.end();
+            ++i_d)
+        {
+                regex* l_rd = std::get<0>(*i_d);
+                if(!l_rd) { continue; }
+                delete l_rd;
+                l_rd = nullptr;
+        }
+}
 //! ----------------------------------------------------------------------------
 //! \details: TODO
 //! \return:  TODO
@@ -227,102 +280,163 @@ int32_t waf::get_str(std::string &ao_str, config_parser::format_t a_format)
 typedef std::map <waflz_pb::variable_t_type_t, waflz_pb::variable_t> _type_var_map_t;
 typedef std::map <std::string, _type_var_map_t> _id_tv_map_t;
 //! ----------------------------------------------------------------------------
-//! \details: This function generates a modified rule based on RTUs.
+//! \details: This function generates modified variable lists based on RTUs.
 //!           The RTUs are stored in id to variable map (a_tv_map).
-//! \return:  TODO
-//! \param:   TODO
+//! \return:  waflz status code
+//! \param:   ao_var_map: the map of rule_id to variable list
+//            ao_rx_list: list of regexes
+//            a_tv_map: map of rtu changes
+//            a_rule: the rule that needs modifications
+//            a_replace: replace flag
 //! ----------------------------------------------------------------------------
-static int32_t create_modified_rule(::waflz_pb::directive_t** ao_drx,
-                                    regex_list_t &ao_rx_list,
-                                    const _type_var_map_t& a_tv_map,
-                                    const ::waflz_pb::sec_rule_t &a_rule,
-                                    bool a_replace = false)
+static int32_t create_modified_variable_list(update_variable_map_t* ao_var_map,
+                                             regex_list_t &ao_rx_list,
+                                             const _type_var_map_t& a_tv_map,
+                                             const ::waflz_pb::sec_rule_t &a_rule,
+                                             bool a_replace = false)
 {
-        if(!ao_drx)
-        {
-                return WAFLZ_STATUS_ERROR;
-        }
-        ::waflz_pb::directive_t* l_drx = new waflz_pb::directive_t();
-        ::waflz_pb::sec_rule_t *l_mx_r = l_drx->mutable_sec_rule();
-        l_mx_r->CopyFrom(a_rule);
         // -------------------------------------------------
-        // Apply RTU on chained rules as well
+        // DEBUG - tells you which rule is being looked at
+        // -------------------------------------------------
+        // NDBG_PRINT("Creating modified var list for: %s\n", a_rule.action().id().c_str());
+        // -------------------------------------------------
+        // save rule_id to create keys in ao_var_map
+        // -------------------------------------------------
+        const std::string l_rule_id = a_rule.action().id();
+        // -------------------------------------------------
+        // current rule to look at (can be a chained rule)
         // -------------------------------------------------
         int32_t l_cr_idx = -1;
         do
         {
-                waflz_pb::sec_rule_t *l_rule = NULL;
-                if(l_cr_idx == -1)
-                {
-                        l_rule = l_mx_r;
-                }
-                if((l_cr_idx >= 0) &&
-                    (l_cr_idx < l_mx_r->chained_rule_size()))
-                {
-                        l_rule = l_mx_r->mutable_chained_rule(l_cr_idx);
-                }
                 // -----------------------------------------
-                // for each var...
+                // construct key for ao_var_map
                 // -----------------------------------------
-                for(int32_t i_v = 0; i_v < l_rule->variable_size(); ++i_v)
+                std::string l_var_key = l_rule_id + "_" + std::to_string(l_cr_idx+1);
+                // -----------------------------------------
+                // current rule to look at 
+                // NOTE: can be a chained rule
+                // -----------------------------------------
+                bool l_in_chain = l_cr_idx >= 0;
+                const ::waflz_pb::sec_rule_t* l_rule = (l_in_chain) ? &a_rule.chained_rule(l_cr_idx) : &a_rule;
+                // -----------------------------------------
+                // create a list ot store the new vars
+                // -----------------------------------------
+                std::vector<::waflz_pb::variable_t> l_new_vars_for_rule;
+                // -----------------------------------------
+                // copy and modify any var the rule contains
+                // store if it was modified in l_is_modified
+                // -----------------------------------------
+                bool l_is_modified = false;
+                for (int32_t i_v = 0; i_v < l_rule->variable_size(); ++i_v)
                 {
-                        ::waflz_pb::variable_t& l_v = *(l_rule->mutable_variable(i_v));
-                        if(!l_v.has_type())
-                        {
-                                continue;
-                        }
                         // ---------------------------------
-                        // variable is type...
+                        // get current variable from rule
                         // ---------------------------------
-                        _type_var_map_t::const_iterator i_vm = a_tv_map.find(l_v.type());
-                        if(i_vm == a_tv_map.end())
-                        {
-                                continue;
-                        }
+                        const ::waflz_pb::variable_t& l_v = l_rule->variable(i_v);
                         // ---------------------------------
-                        // if replace -replace whole var
+                        // skip variables without types 
+                        // (ex: ARGS, etc)
                         // ---------------------------------
-                        if(a_replace)
-                        {
-                                l_v.CopyFrom(i_vm->second);
-                                continue;
-                        }
-                        const ::waflz_pb::variable_t& l_vm = i_vm->second;
+                        if (!l_v.has_type()) { continue; }
                         // ---------------------------------
-                        // update the variable match
+                        // copy variable
                         // ---------------------------------
-                        for(int32_t i_m = 0; i_m < l_vm.match_size(); ++i_m)
-                        {
-                                const ::waflz_pb::variable_t_match_t& l_mm = l_vm.match(i_m);
-                                if(!l_mm.has_value())
+                        ::waflz_pb::variable_t l_new_var = ::waflz_pb::variable_t(l_v);
+                        // ---------------------------------
+                        // check for rtu on variable type
+                        // ---------------------------------
+                        ns_waflz::_type_var_map_t::const_iterator l_rtu_matches = a_tv_map.find(l_v.type());
+                        if (l_rtu_matches != a_tv_map.end())
+                        { 
+                                // ---------------------------------
+                                // set modified
+                                // ---------------------------------
+                                l_is_modified = true;
+                                // ---------------------------------
+                                // get variable from rtu
+                                // ---------------------------------
+                                const::waflz_pb::variable_t l_rtu_variable = l_rtu_matches->second;
+                                // ---------------------------------
+                                // if replace -replace whole var
+                                // ---------------------------------
+                                if (a_replace)
                                 {
+                                        l_new_var.CopyFrom(l_rtu_variable);
+                                        l_new_vars_for_rule.push_back(l_new_var);
                                         continue;
                                 }
-                                ::waflz_pb::variable_t_match_t* l_new_mx = l_v.add_match();
-                                l_new_mx->CopyFrom(l_mm);
-                                // -------------------------
-                                // regex...
-                                // -------------------------
-                                if(l_mm.is_regex())
+                                // ---------------------------------
+                                // add rtu matches
+                                // ---------------------------------
+                                for (int32_t i_m = 0; i_m < l_rtu_variable.match_size(); i_m++)
                                 {
-                                        regex *l_pcre = NULL;
-                                        l_pcre = new regex();
-                                        const std::string &l_rx = l_mm.value();
-                                        int32_t l_s;
-                                        l_s = l_pcre->init(l_rx.c_str(), l_rx.length());
-                                        if(l_s != WAFLZ_STATUS_OK)
+                                        // -------------------------
+                                        // get the current match
+                                        // -------------------------
+                                        const ::waflz_pb::variable_t_match_t& l_mm = l_rtu_variable.match(i_m);
+                                        // -------------------------
+                                        // no value = skip
+                                        // -------------------------
+                                        if (!l_mm.has_value()) { continue; }
+                                        // -------------------------
+                                        // create a copy of the
+                                        // match
+                                        // -------------------------
+                                        ::waflz_pb::variable_t_match_t* l_new_mx = l_new_var.add_match();
+                                        l_new_mx->CopyFrom(l_mm);
+                                        // -------------------------
+                                        // if its a regex, compile
+                                        // -------------------------
+                                        if (l_mm.is_regex())
                                         {
-                                                // TODO -log error reason???
-                                                return WAFLZ_STATUS_ERROR;
+                                                regex *l_pcre = NULL;
+                                                l_pcre = new regex();
+                                                const std::string &l_rx = l_mm.value();
+                                                int32_t l_s;
+                                                l_s = l_pcre->init(l_rx.c_str(), l_rx.length());
+                                                if(l_s != WAFLZ_STATUS_OK)
+                                                {
+                                                        // TODO -log error reason???
+                                                        return WAFLZ_STATUS_ERROR;
+                                                }
+                                                ao_rx_list.push_back(l_pcre);
+                                                l_new_mx->set__reserved_1((uint64_t)l_pcre);
                                         }
-                                        ao_rx_list.push_back(l_pcre);
-                                        l_new_mx->set__reserved_1((uint64_t)l_pcre);
                                 }
                         }
+                        // ---------------------------------
+                        // append the (possibly modified)
+                        // variable to the list
+                        // ---------------------------------
+                        l_new_vars_for_rule.push_back(l_new_var);
                 }
-                ++l_cr_idx;
-        } while (l_cr_idx < l_mx_r->chained_rule_size());
-        *ao_drx = l_drx;
+                // ---------------------------------
+                // if no change - go to next part
+                // of rule
+                // ---------------------------------
+                if (!l_is_modified)
+                {
+                        l_cr_idx++;
+                        continue;
+                }
+                // ---------------------------------
+                // shrink vector to save space
+                // ---------------------------------
+                l_new_vars_for_rule.shrink_to_fit();
+                // ---------------------------------
+                // update the rtu map
+                // ---------------------------------
+                // NDBG_PRINT("setting %s\n", l_var_key.c_str());
+                (*ao_var_map)[l_var_key] = l_new_vars_for_rule;
+                // ---------------------------------
+                // on to next rule in chain
+                // ---------------------------------
+                l_cr_idx++;
+        } while (l_cr_idx < a_rule.chained_rule_size());
+        // -------------------------------------------------
+        // return once rule is processed
+        // -------------------------------------------------
         return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
@@ -335,6 +449,7 @@ static int32_t create_modified_rule(::waflz_pb::directive_t** ao_drx,
 //! \param:   ao_directive_list: list of all directives
 //!           ao_mx_directive_list: list of all modified directives
 //!           ao_rx_list: list of all compiled regex
+//!           ao_var_map: list of all variable list for rules with rtus
 //!           a_dr_id_set: ids of rule to be removed
 //!           ao_id_tv_map: rule id to variable map, for updating target
 //!           ao_id_tv_replace_map: rule id to varaible replace map
@@ -342,6 +457,7 @@ static int32_t create_modified_rule(::waflz_pb::directive_t** ao_drx,
 static int32_t modify_directive_list(directive_list_t &ao_directive_list,
                                      directive_list_t &ao_mx_directive_list,
                                      regex_list_t &ao_rx_list,
+                                     update_variable_map_t &ao_var_map,
                                      const disabled_rule_id_set_t &a_dr_id_set,
                                      const _id_tv_map_t &ao_id_tv_map,
                                      const _id_tv_map_t &ao_id_tv_replace_map)
@@ -405,15 +521,12 @@ static int32_t modify_directive_list(directive_list_t &ao_directive_list,
                         // ---------------------------------
                         if(l_is_modified)
                         {
-                                ::waflz_pb::directive_t* l_drx = NULL;
                                 int32_t l_s;
-                                l_s = create_modified_rule(&l_drx, ao_rx_list, l_tv_map, l_r, true);
+                                l_s = create_modified_variable_list(&ao_var_map, ao_rx_list, l_tv_map, l_r, true);
                                 if(l_s != WAFLZ_STATUS_OK)
                                 {
                                         return WAFLZ_STATUS_ERROR;
                                 }
-                                ao_mx_directive_list.push_back(l_drx);
-                                *i_d = l_drx;
                         }
                 }
                 // -----------------------------------------
@@ -421,7 +534,8 @@ static int32_t modify_directive_list(directive_list_t &ao_directive_list,
                 // -----------------------------------------
                 i_id = ao_id_tv_map.find(l_id);
                 if(i_id != ao_id_tv_map.end())
-                {       int32_t l_cr_idx = -1;
+                {       
+                        int32_t l_cr_idx = -1;
                         const ::waflz_pb::sec_rule_t& l_r = l_d.sec_rule();
                         // check for chained rules as well.
                         do
@@ -463,16 +577,12 @@ static int32_t modify_directive_list(directive_list_t &ao_directive_list,
                                 // ---------------------------------
                                 if(l_is_modified)
                                 {
-                                        ::waflz_pb::directive_t* l_drx = NULL;
                                         int32_t l_s;
-                                        l_s = create_modified_rule(&l_drx, ao_rx_list, l_tv_map, l_r, false);
+                                        l_s = create_modified_variable_list(&ao_var_map, ao_rx_list, l_tv_map, l_r, false);
                                         if(l_s != WAFLZ_STATUS_OK)
                                         {
                                                 return WAFLZ_STATUS_ERROR;
                                         }
-                                        ao_mx_directive_list.push_back(l_drx);
-                                        *i_d = l_drx;
-                                        //NDBG_PRINT("RULE: %s\n", l_drx->sec_rule().ShortDebugString().c_str());
                                 }
                                 ++l_cr_idx;
                         } while (l_cr_idx < l_d.sec_rule().chained_rule_size());
@@ -520,7 +630,7 @@ int32_t waf::compile(void)
         for(int32_t i_rtu = 0; i_rtu < m_pb->update_target_by_id_size(); ++i_rtu)
         {
                 const ::waflz_pb::update_target_t& l_rtu = m_pb->update_target_by_id(i_rtu);
-                if(!l_rtu.has_id())
+                if(!l_rtu.has_id() && l_rtu.id_list_size() == 0)
                 {
                         continue;
                 }
@@ -547,20 +657,46 @@ int32_t waf::compile(void)
                                         {
                                                 continue;
                                         }
-                                        if(l_id_tv_replace_map->find(l_rtu.id()) == l_id_tv_replace_map->end())
+                                        if ( l_rtu.id_list_size() >= 1 )
                                         {
-                                                _type_var_map_t l_tmp;
-                                                (*l_id_tv_replace_map)[l_rtu.id()] = l_tmp;
+                                                for (int i_rule_id_index = 0;
+                                                i_rule_id_index < l_rtu.id_list_size();
+                                                i_rule_id_index++)
+                                                {
+                                                        const std::string rule_id = l_rtu.id_list(i_rule_id_index);
+                                                        if(l_id_tv_replace_map->find(rule_id) == l_id_tv_replace_map->end())
+                                                        {
+                                                                _type_var_map_t l_tmp;
+                                                                (*l_id_tv_replace_map)[rule_id] = l_tmp;
+                                                        }
+                                                        _type_var_map_t& l_tv_map = (*l_id_tv_replace_map)[rule_id];
+                                                        if(l_tv_map.find(l_v.type()) == l_tv_map.end())
+                                                        {
+                                                                waflz_pb::variable_t l_tmp;
+                                                                l_tmp.set_type(l_v.type());
+                                                                l_tv_map[l_v.type()] = l_tmp;
+                                                        }
+                                                        ::waflz_pb::variable_t& l_rm_v = l_tv_map[l_v.type()];
+                                                        l_rm_v.add_match()->CopyFrom(l_m);
+                                                }
                                         }
-                                        _type_var_map_t& l_tv_map = (*l_id_tv_replace_map)[l_rtu.id()];
-                                        if(l_tv_map.find(l_v.type()) == l_tv_map.end())
+                                        else
                                         {
-                                                waflz_pb::variable_t l_tmp;
-                                                l_tmp.set_type(l_v.type());
-                                                l_tv_map[l_v.type()] = l_tmp;
+                                                if(l_id_tv_replace_map->find(l_rtu.id()) == l_id_tv_replace_map->end())
+                                                {
+                                                        _type_var_map_t l_tmp;
+                                                        (*l_id_tv_replace_map)[l_rtu.id()] = l_tmp;
+                                                }
+                                                _type_var_map_t& l_tv_map = (*l_id_tv_replace_map)[l_rtu.id()];
+                                                if(l_tv_map.find(l_v.type()) == l_tv_map.end())
+                                                {
+                                                        waflz_pb::variable_t l_tmp;
+                                                        l_tmp.set_type(l_v.type());
+                                                        l_tv_map[l_v.type()] = l_tmp;
+                                                }
+                                                ::waflz_pb::variable_t& l_rm_v = l_tv_map[l_v.type()];
+                                                l_rm_v.add_match()->CopyFrom(l_m);
                                         }
-                                        ::waflz_pb::variable_t& l_rm_v = l_tv_map[l_v.type()];
-                                        l_rm_v.add_match()->CopyFrom(l_m);
                                 }
                                 continue;
                         }
@@ -588,29 +724,60 @@ int32_t waf::compile(void)
                                 {
                                         continue;
                                 }
-                                if(l_id_tv_map->find(l_rtu.id()) == l_id_tv_map->end())
+                                if ( l_rtu.id_list_size() >= 1 )
                                 {
-                                        _type_var_map_t l_tmp;
-                                        (*l_id_tv_map)[l_rtu.id()] = l_tmp;
+                                        for (int i_rule_id_index = 0;
+                                             i_rule_id_index < l_rtu.id_list_size();
+                                             i_rule_id_index++)
+                                        {
+                                                const std::string rule_id = l_rtu.id_list(i_rule_id_index);
+                                                if(l_id_tv_map->find(rule_id) == l_id_tv_map->end())
+                                                {
+                                                        _type_var_map_t l_tmp;
+                                                        (*l_id_tv_map)[rule_id] = l_tmp;
+                                                }
+                                                _type_var_map_t& l_tv_map = (*l_id_tv_map)[rule_id];
+                                                if(l_tv_map.find(l_v.type()) == l_tv_map.end())
+                                                {
+                                                        waflz_pb::variable_t l_tmp;
+                                                        l_tmp.set_type(l_v.type());
+                                                        l_tv_map[l_v.type()] = l_tmp;
+                                                }
+                                                ::waflz_pb::variable_t& l_rm_v = l_tv_map[l_v.type()];
+                                                l_rm_v.add_match()->CopyFrom(l_m);
+                                        }
                                 }
-                                _type_var_map_t& l_tv_map = (*l_id_tv_map)[l_rtu.id()];
-                                if(l_tv_map.find(l_v.type()) == l_tv_map.end())
+                                else
                                 {
-                                        waflz_pb::variable_t l_tmp;
-                                        l_tmp.set_type(l_v.type());
-                                        l_tv_map[l_v.type()] = l_tmp;
+                                        if(l_id_tv_map->find(l_rtu.id()) == l_id_tv_map->end())
+                                        {
+                                                _type_var_map_t l_tmp;
+                                                (*l_id_tv_map)[l_rtu.id()] = l_tmp;
+                                        }
+                                        _type_var_map_t& l_tv_map = (*l_id_tv_map)[l_rtu.id()];
+                                        if(l_tv_map.find(l_v.type()) == l_tv_map.end())
+                                        {
+                                                waflz_pb::variable_t l_tmp;
+                                                l_tmp.set_type(l_v.type());
+                                                l_tv_map[l_v.type()] = l_tmp;
+                                        }
+                                        ::waflz_pb::variable_t& l_rm_v = l_tv_map[l_v.type()];
+                                        l_rm_v.add_match()->CopyFrom(l_m);
                                 }
-                                ::waflz_pb::variable_t& l_rm_v = l_tv_map[l_v.type()];
-                                l_rm_v.add_match()->CopyFrom(l_m);
                         }
                 }
         }
+        // -------------------------------------------------
+        // clear old rtus if the exist
+        // -------------------------------------------------
+        m_rtu_variable_map.clear();
         // -------------------------------------------------
         // modifications...
         // -------------------------------------------------
         l_s = modify_directive_list(m_compiled_config->m_directive_list_phase_1,
                                     m_mx_rule_list,
                                     m_compiled_config->m_regex_list,
+                                    m_rtu_variable_map,
                                     l_dr_id_set,
                                     *l_id_tv_map,
                                     *l_id_tv_replace_map);
@@ -623,6 +790,7 @@ int32_t waf::compile(void)
         l_s = modify_directive_list(m_compiled_config->m_directive_list_phase_2,
                                     m_mx_rule_list,
                                     m_compiled_config->m_regex_list,
+                                    m_rtu_variable_map,
                                     l_dr_id_set,
                                     *l_id_tv_map,
                                     *l_id_tv_replace_map);
@@ -638,7 +806,7 @@ int32_t waf::compile(void)
 }
 //! ----------------------------------------------------------------------------
 //! \details: initialize waf from a file path.
-//!           Called from rules.cc/waflz_server
+//!           Called from bots.cc/rules.cc/waflz_server
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
@@ -680,7 +848,7 @@ int32_t waf::init(config_parser::format_t a_format,
         l_s = l_parser->parse_config(*l_pb, a_format, a_path);
         if(l_s != WAFLZ_STATUS_OK)
         {
-                WAFLZ_PERROR(m_err_msg, "%s", l_parser->get_err_msg());
+                WAFLZ_PERROR(m_err_msg, "parse error %.*s", WAFLZ_ERR_REASON_LEN, l_parser->get_err_msg());
                 if(l_parser) { delete l_parser; l_parser = NULL;}
                 if(l_pb) { delete l_pb; l_pb = NULL;}
                 return WAFLZ_STATUS_ERROR;
@@ -715,6 +883,10 @@ int32_t waf::init(config_parser::format_t a_format,
         m_id = m_pb->id();
         m_cust_id = m_pb->customer_id();
         m_name = m_pb->name();
+        if (m_pb->has_team_config())
+        {
+                m_team_config = m_pb->team_config();
+        }
         // -------------------------------------------------
         // set ruleset info for custom rules
         // -------------------------------------------------
@@ -796,7 +968,7 @@ int32_t waf::init(void* a_js,
         l_s = l_parser->parse_config(*l_pb, a_js);
         if(l_s != WAFLZ_STATUS_OK)
         {
-                WAFLZ_PERROR(m_err_msg, "%s", l_parser->get_err_msg());
+                WAFLZ_PERROR(m_err_msg, "parse error %.*s", WAFLZ_ERR_REASON_LEN, l_parser->get_err_msg());
                 if(l_parser) { delete l_parser; l_parser = NULL;}
                 if(l_pb) { delete l_pb; l_pb = NULL;}
                 return WAFLZ_STATUS_ERROR;
@@ -836,6 +1008,10 @@ int32_t waf::init(void* a_js,
         m_id = m_pb->id();
         m_cust_id = m_pb->customer_id();
         m_name = m_pb->name();
+        if (m_pb->has_team_config())
+        {
+                m_team_config = m_pb->team_config();
+        }
         // -------------------------------------------------
         // update includes to full path
         // -------------------------------------------------
@@ -960,6 +1136,30 @@ int32_t waf::set_defaults(bool a_custom_rules)
         set_resp_var_tx(l_conf_pb, "900050", "outbound_anomaly_score_threshold", "1");
         set_resp_var_tx(l_conf_pb, "900051", "outbound_anomaly_score", "0");
         return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details: adds the rule ids in rule_id_list to the custom score map
+//! \return:  
+//! \param:   a_custom_score: a custom_score_t object
+//! ----------------------------------------------------------------------------
+void waf::process_multi_custom_score_entry(
+        waflz_pb::profile_custom_score_t& a_custom_score)
+{
+        // -------------------------------------------------
+        // exit early if no rules
+        // -------------------------------------------------
+        if (a_custom_score.rule_id_list_size() == 0) return;
+        // -------------------------------------------------
+        // add every rule_id to the custom score map
+        // -------------------------------------------------
+        auto l_rule_list = a_custom_score.rule_id_list();
+        uint32_t l_score = a_custom_score.score();
+        for ( auto i_rule_id = l_rule_list.begin();
+              i_rule_id != l_rule_list.end(); 
+              i_rule_id++ )
+        {
+                m_custom_score_map[*i_rule_id] = l_score;
+        }
 }
 //! ----------------------------------------------------------------------------
 //! \details: Intialize waf object for profile
@@ -1326,6 +1526,54 @@ done:
                 l_conf_pb.add_rule_remove_by_id(l_prof_pb.disabled_rules(i_r).rule_id());
         }
         // -------------------------------------------------
+        // custom score loads
+        // -------------------------------------------------
+        for ( int32_t i_r = 0;
+              i_r < l_prof_pb.custom_scores_size();
+              ++i_r)
+        {
+                // -----------------------------------------
+                // custom score object
+                // -----------------------------------------
+                waflz_pb::profile_custom_score_t l_custom_score = \
+                        l_prof_pb.custom_scores(i_r);
+                // -----------------------------------------
+                // skip if missing score
+                // -----------------------------------------
+                bool l_missing_score = !l_custom_score.has_score();
+                if (l_missing_score) { continue; }
+                // -----------------------------------------
+                // skip if missing rule id and rule_id_list
+                // -----------------------------------------
+                bool l_missing_rule = !l_custom_score.has_rule_id();
+                bool l_missing_rule_list = l_custom_score.rule_id_list_size() == 0;
+                if (l_missing_rule && l_missing_rule_list) 
+                {
+                        continue; 
+                }
+                // -----------------------------------------
+                // process rule_id_list if present
+                // -----------------------------------------
+                if (!l_missing_rule_list)
+                {
+                        this->process_multi_custom_score_entry(l_custom_score);
+                        continue;
+                }
+                // -----------------------------------------
+                // otherwise we process a single rule_id
+                // -----------------------------------------
+                std::string l_rule_id = l_custom_score.rule_id();
+                // -----------------------------------------
+                // skip if rule_id is empty
+                // -----------------------------------------
+                bool l_missing_rule_id = l_rule_id.empty();
+                if ( l_missing_rule_id ) { continue; }
+                // -----------------------------------------
+                // add custom score to map
+                // -----------------------------------------
+                m_custom_score_map[l_rule_id] = l_custom_score.score();
+        }
+        // -------------------------------------------------
         // rule target updates
         // -------------------------------------------------
         // update the targets for a given rule
@@ -1343,21 +1591,46 @@ done:
         for(int32_t i_rtu = 0; i_rtu < l_prof_pb.rule_target_updates_size(); ++i_rtu)
         {
                 const ::waflz_pb::profile_rule_target_update_t& l_rtu = l_prof_pb.rule_target_updates(i_rtu);
-                if(!l_rtu.has_rule_id() ||
+                if(
+                   (!l_rtu.has_rule_id() && l_rtu.rule_id_list_size() == 0) ||
                    !l_rtu.has_target())
                 {
                        continue;
                 }
+                // -----------------------------------------
+                // make an update target for this rtu
+                // -----------------------------------------
                 ::waflz_pb::update_target_t& l_ut = *(l_conf_pb.add_update_target_by_id());
-                l_ut.set_id(l_rtu.rule_id());
+                // -----------------------------------------
+                // if there is a list of ids, set the list
+                // -----------------------------------------
+                if (l_rtu.rule_id_list_size() >= 1)
+                {
+                        for (int i_rule_id_index = 0;
+                             i_rule_id_index < l_rtu.rule_id_list_size();
+                             i_rule_id_index++)
+                        {
+                                l_ut.add_id_list(l_rtu.rule_id_list(i_rule_id_index));                       
+                        }
+                }
+                // -----------------------------------------
+                // otherwise, set id
+                // -----------------------------------------
+                else
+                {
+                        l_ut.set_id(l_rtu.rule_id());                       
+                }
+                // -----------------------------------------
+                // set replace_target
+                // -----------------------------------------
                 if(l_rtu.has_replace_target())
                 {
                         l_ut.set_replace(l_rtu.replace_target());
                 }
-                ::waflz_pb::variable_t& l_var = *(l_ut.add_variable());
                 // -----------------------------------------
                 // add match...
                 // -----------------------------------------
+                ::waflz_pb::variable_t& l_var = *(l_ut.add_variable());
                 if(l_rtu.has_target_match())
                 {
                         ::waflz_pb::variable_t_match_t& l_match = *(l_var.add_match());
@@ -1391,6 +1664,53 @@ done:
                 //NDBG_PRINT("rtu: %s\n", l_ut.ShortDebugString().c_str());
         }
         // -------------------------------------------------
+        // redacted variables
+        // -------------------------------------------------
+        for(int32_t i_rv = 0; i_rv < l_prof_pb.redacted_variables_size(); ++i_rv)
+        {
+                // -----------------------------------------
+                // status var
+                // -----------------------------------------
+                int32_t l_s;
+                // -----------------------------------------
+                // get single redacted var
+                // -----------------------------------------
+                const waflz_pb::profile_redacted_var_t& l_rv =  l_prof_pb.redacted_variables(i_rv);
+                // -----------------------------------------
+                // pluck members out for ease of use
+                // -----------------------------------------
+                const std::string& l_match_on = l_rv.match_on();
+                const std::string& l_val_replacement = l_rv.replacement_value();
+                const std::string& l_name_replacement = l_rv.replacement_name();
+                // -----------------------------------------
+                // compile regex from variables
+                // -----------------------------------------
+                regex* l_pcre = new regex();
+                l_s = l_pcre->init(l_match_on.c_str(), l_match_on.length());
+                // -----------------------------------------
+                // error out if bad regex
+                // -----------------------------------------
+                if (l_s != WAFLZ_STATUS_OK)
+                {
+                        const char* l_err_ptr;
+                        int l_err_off;
+                        l_pcre->get_err_info(&l_err_ptr, l_err_off);
+                        WAFLZ_PERROR(m_err_msg, "Failed to init re from %s. Reason: %s -offset: %d",
+                                l_match_on.c_str(),
+                                l_err_ptr,
+                                l_err_off);
+                        if (l_pcre) { delete l_pcre; l_pcre = NULL; }
+                        this->clear_redacted_variables_list();
+                        return WAFLZ_STATUS_ERROR;
+                }
+                // -----------------------------------------
+                // save regex for later
+                // -----------------------------------------
+                m_redacted_vars.push_back(std::make_tuple(l_pcre,
+                                                          l_val_replacement,
+                                                          l_name_replacement));
+        }
+        // -------------------------------------------------
         // compile
         // -------------------------------------------------
         int32_t l_s;
@@ -1407,10 +1727,101 @@ done:
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
+int32_t waf::verify_bot_actions_for_directive_list(action_map_t a_actions,
+                                                   directive_list_t a_directive_list)
+{
+        // -------------------------------------------------
+        // enforcement_type_t descriptor to get names
+        // -------------------------------------------------
+        auto *l_enf_desc = waflz_pb::enforcement_type_t_descriptor();
+        // -------------------------------------------------
+        // run through the directive list
+        // -------------------------------------------------
+        for (auto i_t = a_directive_list.begin();
+             i_t != a_directive_list.end();
+             i_t++)
+        {
+                // -----------------------------------------
+                // skip if directive is missing rule
+                // -----------------------------------------
+                if ( !(*i_t)->has_sec_rule() ) { continue; }
+                // -----------------------------------------
+                // get the rule - skip if no action
+                // -----------------------------------------
+                const waflz_pb::sec_rule_t l_rule = (*i_t)->sec_rule();
+                if ( !l_rule.has_action() ) { continue; }
+                // -----------------------------------------
+                // get the action - skip if no bot_action
+                // -----------------------------------------
+                const waflz_pb::sec_action_t l_action = l_rule.action();
+                if ( !l_action.has_bot_action() ) { continue; }
+                // -----------------------------------------
+                // get the bot_action - skip if no bot action
+                // -----------------------------------------
+                const waflz_pb::enforcement_type_t l_bot_action = l_action.bot_action();
+                // -----------------------------------------
+                // convert enforcement_type_t to name
+                // -----------------------------------------
+                const std::string l_entry_name = l_enf_desc->FindValueByNumber(l_bot_action)->name();
+                // -----------------------------------------
+                // return error if the bot_action is not found
+                // -----------------------------------------
+                if ( a_actions.find(l_entry_name) == a_actions.end() )
+                {
+                        WAFLZ_PERROR(m_err_msg, "found unknown bot_action '%s' in rule '%s'\n",
+                                     l_entry_name.c_str(),
+                                     l_rule.name().c_str());
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // all rules good
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
+}
+
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+int32_t waf::verify_bot_actions(action_map_t a_actions)
+{
+        // -------------------------------------------------
+        // status of verification
+        // -------------------------------------------------
+        int32_t l_s = WAFLZ_STATUS_OK;
+        // -------------------------------------------------
+        // check phase 1 rules, return if not valid
+        // -------------------------------------------------
+        directive_list_t l_directive_list = m_compiled_config->m_directive_list_phase_1;
+        l_s = verify_bot_actions_for_directive_list(a_actions, l_directive_list);
+        if ( l_s != WAFLZ_STATUS_OK ) { return l_s; }
+        // -------------------------------------------------
+        // check phase 2 rules, return if not valid
+        // -------------------------------------------------
+        l_directive_list = m_compiled_config->m_directive_list_phase_2;
+        l_s = verify_bot_actions_for_directive_list(a_actions, l_directive_list);
+        if ( l_s != WAFLZ_STATUS_OK ) { return l_s; }
+        // -------------------------------------------------
+        // all rules good
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
+}
+
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
 int32_t waf::process_rule(waflz_pb::event **ao_event,
                           const waflz_pb::sec_rule_t &a_rule,
                           rqst_ctx &a_ctx)
 {
+        // -------------------------------------------------
+        // top level rule id
+        // -------------------------------------------------
+        const std::string l_rule_id = a_rule.action().id();
         // -------------------------------------------------
         // chain rule loop
         // -------------------------------------------------
@@ -1420,95 +1831,96 @@ int32_t waf::process_rule(waflz_pb::event **ao_event,
         do {
                 //NDBG_PRINT("RULE[%4d]************************************\n", l_cr_idx);
                 //NDBG_PRINT("l_cr_idx: %d\n", l_cr_idx);
-                if(l_cr_idx == -1)
+                // -------------------------------------------------
+                // construct id for rtu variables
+                // -------------------------------------------------
+                std::string l_var_key = l_rule_id + "_" + std::to_string(l_cr_idx + 1);
+                uint32_t l_rule_depth = l_cr_idx + 1;
+                // -------------------------------------------------
+                // get current rule (could be chain)
+                // -------------------------------------------------
+                if (l_cr_idx == -1)
                 {
                         l_rule = &a_rule;
                 }
-                else if((l_cr_idx >= 0) &&
-                        (l_cr_idx < a_rule.chained_rule_size()))
+                else if ((l_cr_idx >= 0) &&
+                         (l_cr_idx < a_rule.chained_rule_size()))
                 {
                         l_rule = &(a_rule.chained_rule(l_cr_idx));
                 }
                 else
                 {
-                        //WAFLZ_PERROR(m_err_msg, "bad chained rule idx: %d -size: %d",
-                        //             l_cr_idx,
-                        //             a_rule.chained_rule_size());
+                        WAFLZ_PERROR(m_err_msg, "bad chained rule: %.*s",
+                                     WAFLZ_ERR_REASON_LEN,
+                                     a_rule.DebugString().c_str());
                         return WAFLZ_STATUS_ERROR;
                 }
-                //show_rule_info(a_rule);
-                // Get action
-                if(!l_rule->has_action())
+                // -------------------------------------------------
+                // if no action, go to next rule (chain rule)
+                // -------------------------------------------------
+                if (!l_rule->has_action())
                 {
                         // TODO is OK???
                         ++l_cr_idx;
                         continue;
                 }
-                if(!l_rule->has_operator_())
+                // -------------------------------------------------
+                // if no operator, go to next rule (chain rule)
+                // -------------------------------------------------
+                if (!l_rule->has_operator_())
                 {
                         // TODO this aight???
                         // TODO is OK???
                         ++l_cr_idx;
                         continue;
                 }
+                // -------------------------------------------------
+                // check if the rule matches
+                // -------------------------------------------------
                 int32_t l_s;
                 i_match = false;
-                l_s = process_rule_part(ao_event,
-                                        i_match,
-                                        *l_rule,
-                                        a_ctx);
-                if(l_s != WAFLZ_STATUS_OK)
+                rule_information_t l_rule_information;
+                l_rule_information.m_parent_rule_id = l_rule_id;
+                l_rule_information.m_depth = l_rule_depth;
+                l_s = process_rule_part(
+                    ao_event, i_match, *l_rule, a_ctx, l_rule_information);
+                // -------------------------------------------------
+                // if failed to process rule - return error
+                // -------------------------------------------------
+                if (l_s != WAFLZ_STATUS_OK)
                 {
-                        //WAFLZ_PERROR(m_err_msg, "bad chained rule idx: %d -size: %d",
-                        //             l_cr_idx,
-                        //             a_rule.chained_rule_size());
+                        WAFLZ_PERROR(m_err_msg, "bad chained rule idx: %d -id: %s",
+                                     l_cr_idx,
+                                     a_rule.action().id().c_str());
                         return WAFLZ_STATUS_ERROR;
                 }
-                if(!i_match)
-                {
-                        // bail out on first un-matched...
-                        return WAFLZ_STATUS_OK;
-                }
+                // -------------------------------------------------
+                // if no match - bail and dont check chained rules
+                // -------------------------------------------------
+                if (!i_match) { return WAFLZ_STATUS_OK; }
+                // -------------------------------------------------
+                // next rule in chain
+                // -------------------------------------------------
                 ++l_cr_idx;
         } while(l_cr_idx < a_rule.chained_rule_size());
         // -------------------------------------------------
         // never matched...
         // -------------------------------------------------
-        if(!i_match)
+        if (!i_match)
         {
                 return WAFLZ_STATUS_OK;
         }
         // -------------------------------------------------
         // matched...
         // -------------------------------------------------
-        if(!a_rule.has_action())
+        if (!a_rule.has_action())
         {
                 return WAFLZ_STATUS_OK;
         }
-        // -------------------------------------------------
-        // run disruptive action...
-        // -------------------------------------------------
-#if 0
-        for(int32_t i_s = 0; i_s < a_rule.action().setvar_size(); ++i_s)
-        {
-                const ::waflz_pb::sec_action_t_setvar_t& l_sv = a_rule.action().setvar(i_s);
-                NDBG_PRINT("%sSET_VAR%s: %s%s%s\n",
-                           ANSI_COLOR_BG_GREEN, ANSI_COLOR_OFF,
-                           ANSI_COLOR_FG_GREEN, l_sv.ShortDebugString().c_str(), ANSI_COLOR_OFF);
-        }
-#endif
+
         // -------------------------------------------------
         // process match
         // -------------------------------------------------
-#if 0
-        {
-        std::string l_id = "__na__";
-        if(a_rule.action().has_id()) { l_id = a_rule.action().id(); }
-        std::string l_msg = "__na__";
-        if(a_rule.action().has_msg()) { l_msg = a_rule.action().msg(); }
-        NDBG_OUTPUT("MATCHED: id: %16s :: msg: %s\n", l_id.c_str(), l_msg.c_str());
-        }
-#endif
         int32_t l_s;
         l_s = process_match(ao_event, a_rule, a_ctx);
         if(l_s != WAFLZ_STATUS_OK)
@@ -1525,17 +1937,19 @@ int32_t waf::process_rule(waflz_pb::event **ao_event,
 int32_t waf::process_rule_part(waflz_pb::event **ao_event,
                                bool &ao_match,
                                const waflz_pb::sec_rule_t &a_rule,
-                               rqst_ctx &a_ctx)
+                               rqst_ctx &a_ctx,
+                               const rule_information_t a_rule_information)
 {
         macro *l_macro =  &(m_engine.get_macro());
         ao_match = false;
-        const waflz_pb::sec_action_t &l_a = a_rule.action();
+        const waflz_pb::sec_action_t& l_a = a_rule.action();
+        const std::string l_rule_id = l_a.id();
         bool l_multimatch = l_a.multimatch();
         // -------------------------------------------------
         // get operator
         // -------------------------------------------------
-        if(!a_rule.has_operator_() ||
-           !a_rule.operator_().has_type())
+        if (!a_rule.has_operator_() ||
+            !a_rule.operator_().has_type())
         {
                 // TODO log error -shouldn't happen???
                 return WAFLZ_STATUS_OK;
@@ -1544,16 +1958,27 @@ int32_t waf::process_rule_part(waflz_pb::event **ao_event,
         op_t l_op_cb = NULL;
         l_op_cb = get_op_cb(l_op.type());
         // -------------------------------------------------
+        // check if rtu variables exist
+        // -------------------------------------------------
+        std::string l_rtu_key = a_rule_information.m_parent_rule_id + "_" + to_string(a_rule_information.m_depth);
+        auto l_rtu_map_iterator = m_rtu_variable_map.find(l_rtu_key);
+        bool l_rtu_variables_exist = l_rtu_map_iterator != m_rtu_variable_map.end();
+        std::vector<waflz_pb::variable_t> l_rtu_variables;
+        if (l_rtu_variables_exist) { l_rtu_variables = l_rtu_map_iterator->second; }
+        // -------------------------------------------------
         // variable loop
         // -------------------------------------------------
         uint32_t l_var_count = 0;
         for(int32_t i_var = 0; i_var < a_rule.variable_size(); ++i_var)
         {
                 // -----------------------------------------
-                // get var cb
+                // get current variable
                 // -----------------------------------------
-                const waflz_pb::variable_t& l_var = a_rule.variable(i_var);
-                if(!l_var.has_type())
+                const waflz_pb::variable_t& l_var = (l_rtu_variables_exist) ? l_rtu_variables[i_var] : a_rule.variable(i_var);
+                // -----------------------------------------
+                // if no type - no way to process - return
+                // -----------------------------------------
+                if (!l_var.has_type())
                 {
                         return WAFLZ_STATUS_OK;
                 }
@@ -1573,6 +1998,8 @@ int32_t waf::process_rule_part(waflz_pb::event **ao_event,
                 l_s = l_get_var(l_data_list, l_var_count, l_var, &a_ctx);
                 if(l_s != WAFLZ_STATUS_OK)
                 {
+                        WAFLZ_PERROR(m_err_msg, "error getting variable: %d",
+                                     l_var.type());
                         return WAFLZ_STATUS_ERROR;
                 }
                 // -----------------------------------------
@@ -1729,6 +2156,11 @@ run_op:
                                         a_ctx.m_cx_matched_var_name = "ARGS_COMBINED_SIZE";
                                         a_ctx.m_cx_matched_var = to_string(l_x_len);
                                 }
+                                else if(l_var.type() ==  waflz_pb::variable_t_type_t_BOT_SCORE)
+                                {
+                                        a_ctx.m_cx_matched_var_name = "BOT_SCORE";
+                                        a_ctx.m_cx_matched_var = to_string(l_x_len);
+                                }
                                 else
                                 {
                                         // Reflect Variable name
@@ -1797,7 +2229,7 @@ a_ctx.m_cx_rule_map[l_k] = l_v; \
                 // TODO -only run
                 // non-disruptive???
                 // -----------------------------------------
-                int32_t l_s = process_action_nd(l_a, a_ctx);
+                int32_t l_s = process_action_nd(l_a, a_ctx, a_rule_information.m_parent_rule_id);
                 if(l_s == WAFLZ_STATUS_ERROR)
                 {
                         NDBG_PRINT("error executing action");
@@ -1822,7 +2254,7 @@ a_ctx.m_cx_rule_map[l_k] = l_v; \
 /// @return WAFLZ_STATUS_ERROR or WAFLZ_STATUS_OK
 /// ----------------------------------------------------------------------------
 int32_t waf::process_action_nd(const waflz_pb::sec_action_t &a_action,
-                               rqst_ctx &a_ctx)
+                               rqst_ctx &a_ctx, const std::string a_rule_id = std::string())
 {
         // -------------------------------------------------
         // check for skip
@@ -1849,14 +2281,36 @@ int32_t waf::process_action_nd(const waflz_pb::sec_action_t &a_action,
         for(int32_t i_sv = 0; i_sv < a_action.setvar_size(); ++i_sv)
         {
                 const ::waflz_pb::sec_action_t_setvar_t& l_sv = a_action.setvar(i_sv);
-                //NDBG_PRINT("%ssetvar%s: %s%s%s\n",
+                // NDBG_PRINT("%ssetvar%s: %s%s%s\n",
                 //           ANSI_COLOR_BG_GREEN, ANSI_COLOR_OFF,
                 //           ANSI_COLOR_FG_GREEN, l_sv.ShortDebugString().c_str(), ANSI_COLOR_OFF);
                 //------------------------------------------
-                // var expansion
+                // var before expansion
                 //------------------------------------------
                 const ::std::string& l_var = l_sv.var();
                 const std::string *l_var_ref = &l_var;
+                //------------------------------------------
+                // check if this is being ran by a rule
+                // action + if we are looking at score
+                // value
+                //------------------------------------------
+                bool l_in_rule = !a_rule_id.empty();
+                bool l_is_anomaly_score = tx_val_is_score(l_var);
+                if (l_in_rule && l_is_anomaly_score)
+                {
+                        //----------------------------------
+                        // apply custom score if available
+                        //----------------------------------
+                        auto l_custom_score = m_custom_score_map.find( a_rule_id );
+                        if (l_custom_score != m_custom_score_map.end())
+                        {
+                                a_ctx.m_cx_tx_map[l_var] = to_string(l_custom_score->second);
+                                continue;
+                        }
+                }
+                //------------------------------------------
+                // var expansion
+                //------------------------------------------
                 std::string l_sv_var;
                 if(l_macro.has(l_var))
                 {
@@ -1911,6 +2365,8 @@ int32_t waf::process_action_nd(const waflz_pb::sec_action_t &a_action,
                         //----------------------------------
                         case ::waflz_pb::sec_action_t_setvar_t_op_t_ASSIGN:
                         {
+                                // check for anomaly_pl1
+                                // check for custom here
                                 l_cx_map[*l_var_ref] =  *l_val_ref;
                                 break;
                         }
@@ -1938,6 +2394,7 @@ int32_t waf::process_action_nd(const waflz_pb::sec_action_t &a_action,
                                 // TODO -use strntol instead
                                 // of atoi...
                                 // -------------------------
+                                // check for custom here
 #if 0
                                 int32_t l_in_val;
                                 char *l_end_ptr = NULL;
@@ -2016,27 +2473,9 @@ int32_t waf::process_action_nd(const waflz_pb::sec_action_t &a_action,
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-int32_t waf::process_match(waflz_pb::event** ao_event,
-                           const waflz_pb::sec_rule_t& a_rule,
-                           rqst_ctx& a_ctx)
+uint32_t waf::calculate_rule_anomaly_score( cx_map_t& a_ctx_map, bool a_inbound )
 {
-        if(!ao_event ||
-           !a_rule.has_action())
-        {
-                return WAFLZ_STATUS_ERROR;
-        }
-        const waflz_pb::sec_action_t &l_action = a_rule.action();
         // -------------------------------------------------
-        // compare...
-        // -------------------------------------------------
-        // 1. get "anomaly_score"...
-        // 2. get "inbound_anomaly_score_threshold" or "inbound_anomaly_score_level" --> threshold
-        // 3. if(l_score >= l_threshold) mark as intercepted...
-        // -------------------------------------------------
-        cx_map_t::const_iterator i_t;
-        int32_t l_anomaly_score = -1;
-        // -------------------------------------------------
-        // handle paranoia...
         // Based on paranoia level different rules set
         // different scores. The CRS uses the following vars
         // crs < v4             or crs >= v4
@@ -2050,148 +2489,178 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
         // 2. Sum up all pl scores until current pl
         // 3. Set the anomaly_score = sum of #2
         // -------------------------------------------------
-        // Only calculate score if the rule is setting a var
-        // e.g setvar:'tx.anomaly_score_pl1=+%{tx.notice_anomaly_score}
-        // Or is a chained rule
+        uint32_t ao_running_anomaly_score = 0;
         // -------------------------------------------------
-        if(l_action.setvar_size() > 0 ||
-            a_rule.chained_rule_size() > 0)
+        // CRSv4 support for inbound | outbound rules
+        // -------------------------------------------------
+        std::string l_prefix = a_inbound ? "inbound_" : "outbound_";
+        // -------------------------------------------------
+        // for each paranoia level
+        // -------------------------------------------------
+        for ( uint32_t i_current_paranoia_level = 1;
+              i_current_paranoia_level <= m_paranoia_level;
+              i_current_paranoia_level++)
         {
-                uint32_t l_cur_anomaly = 0;
-                uint32_t i_pl = 1;
-                do
+                // -----------------------------------------
+                // get anomaly score for current pl
+                // -----------------------------------------
+                std::string l_ex_anomaly = l_prefix + "anomaly_score_pl" + to_string(i_current_paranoia_level);
+                cx_map_t::const_iterator i_t = a_ctx_map.find(l_ex_anomaly);
+                // -----------------------------------------
+                // fallback support for CRSv3 (only inbound)
+                // -----------------------------------------
+                if(a_inbound && i_t == a_ctx_map.end())
                 {
-                        std::string l_ex_anomaly = "anomaly_score_pl" + to_string(i_pl);
-                        std::string l_iex_anomaly = "inbound_anomaly_score_pl" + to_string(i_pl);
-                        i_t = a_ctx.m_cx_tx_map.find(l_ex_anomaly);
-                        if(i_t == a_ctx.m_cx_tx_map.end())
-                        {
-                                i_t = a_ctx.m_cx_tx_map.find(l_iex_anomaly);
-                        }
-                        if(i_t == a_ctx.m_cx_tx_map.end())
-                        {
-                                ++i_pl;
-                                continue;
-                        }
-                        long int l_pl_score;
-                        char *l_end_ptr = NULL;
-                        l_pl_score = strntol(i_t->second.c_str(), i_t->second.length(), &l_end_ptr, 10);
-                        if((l_pl_score == LONG_MAX) ||
-                            (l_pl_score == LONG_MIN) ||
-                            (l_pl_score < 0))
-                        {
-                                ++i_pl;
-                                continue;
-                        }
-                        if(l_end_ptr == i_t->second.c_str())
-                        {
-                                ++i_pl;
-                                continue;
-                        }
-                        l_cur_anomaly += (uint32_t)l_pl_score;
-                        ++i_pl;
-                } while(m_paranoia_level >= i_pl);
-                if(l_cur_anomaly)
-                {
-                        a_ctx.m_cx_tx_map["anomaly_score"]  = to_string(l_cur_anomaly);
+                        l_ex_anomaly = "anomaly_score_pl" + to_string(i_current_paranoia_level);
+                        i_t = a_ctx_map.find(l_ex_anomaly);
                 }
+                // -----------------------------------------
+                // if pl not found, continue
+                // -----------------------------------------
+                if (i_t == a_ctx_map.end())
+                {
+                        continue;
+                }
+                // -----------------------------------------
+                // read pl from tx
+                // -----------------------------------------
+                uint32_t l_current_anomaly_score = strtoul(i_t->second.c_str(),
+                                                          nullptr, 10);
+                // -----------------------------------------
+                // if the value was read wrong
+                // -----------------------------------------
+                bool l_bad_input = l_current_anomaly_score == ULONG_MAX;
+                if( l_bad_input ) { continue; }
+                // -----------------------------------------
+                // add current score to running score
+                // -----------------------------------------
+                ao_running_anomaly_score += l_current_anomaly_score;
         }
         // -------------------------------------------------
-        // get anomaly score
+        // save final score to transaction if > 0
         // -------------------------------------------------
-        i_t = a_ctx.m_cx_tx_map.find("anomaly_score");
-        if(i_t == a_ctx.m_cx_tx_map.end())
+        if ( ao_running_anomaly_score )
+        {
+                a_ctx_map["anomaly_score"] = to_string(ao_running_anomaly_score);
+        }
+        // -------------------------------------------------
+        // return the anomaly score
+        // -------------------------------------------------
+        return atoi(a_ctx_map["anomaly_score"].c_str());
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+int32_t waf::process_match(waflz_pb::event** ao_event,
+                           const waflz_pb::sec_rule_t& a_rule,
+                           rqst_ctx& a_ctx)
+{
+        // -------------------------------------------------
+        // error if we already have an event or no action
+        // -------------------------------------------------
+        if (!ao_event || !a_rule.has_action())
+        {
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // save action and rule id for later
+        // -------------------------------------------------
+        const waflz_pb::sec_action_t &l_action = a_rule.action();
+        const std::string l_rule_id = l_action.id();
+        // -------------------------------------------------
+        // if no log, then quick return
+        // -------------------------------------------------
+        const bool l_action_is_pass = (
+                l_action.action_type() == 
+                ::waflz_pb::sec_action_t_action_type_t_PASS
+        );
+        const bool l_is_no_log = (
+                l_action.has_nolog() && l_action.nolog()
+        );
+        if ( l_is_no_log && l_action_is_pass )
         {
                 return WAFLZ_STATUS_OK;
         }
         // -------------------------------------------------
-        // TODO -use strntol instead
-        // of atoi...
+        // compare...
         // -------------------------------------------------
-        l_anomaly_score = atoi(i_t->second.c_str());
+        // 1. get "anomaly_score"...
+        // 2. get "inbound_anomaly_score_threshold" or "inbound_anomaly_score_level" --> threshold
+        // 3. if(l_score >= l_threshold) mark as intercepted...
+        // -------------------------------------------------
+        uint32_t l_anomaly_score = 0;
+        // -------------------------------------------------
+        // calculate anomaly score if chain_rule or vars
+        // are set
+        // e.g setvar:'tx.anomaly_score_pl1=+%{tx.notice_anomaly_score}
+        // -------------------------------------------------
+        const bool l_vars_set = l_action.setvar_size() > 0;
+        const bool l_is_chain_rule = a_rule.chained_rule_size() > 0;
+        if ( l_vars_set || l_is_chain_rule )
+        {
+                l_anomaly_score = this->calculate_rule_anomaly_score(a_ctx.m_cx_tx_map, true);
+        }
         // -------------------------------------------------
         // skip if no anomaly score and
         // w/o action or PASS types...
         // -------------------------------------------------
-        if((l_anomaly_score <= 0) &&
-           (!l_action.has_action_type() ||
-            (l_action.action_type() == ::waflz_pb::sec_action_t_action_type_t_PASS)))
+        const bool l_has_passible_action = (
+                !l_action.has_action_type() || 
+                l_action_is_pass
+        );
+        if ((l_anomaly_score <= 0) && l_has_passible_action)
         {
                 return WAFLZ_STATUS_OK;
         }
-#ifdef WAFLZ_NATIVE_ANOMALY_MODE
         // -------------------------------------------------
         // skip logging events not contributing to anomaly
         // action
         // -------------------------------------------------
-        if(m_anomaly_score_cur >= l_anomaly_score &&
-           l_action.action_type() == waflz_pb::sec_action_t_action_type_t_PASS)
+        bool l_seen_higher_score_before = m_anomaly_score_cur >= l_anomaly_score;
+        if (l_seen_higher_score_before && l_action_is_pass)
         {
                 return WAFLZ_STATUS_OK;
         }
         m_anomaly_score_cur = l_anomaly_score;
-#endif
+        // -------------------------------------------------
+        // *************************************************
+        // handling anomaly mode natively...
+        // *************************************************
+        // -------------------------------------------------
+        // -------------------------------------------------
+        // get field values...
+        // -------------------------------------------------
 #define _GET_TX_FIELD(_str, _val) do { \
         i_t = a_ctx.m_cx_tx_map.find(_str); \
         if(i_t == a_ctx.m_cx_tx_map.end()) { \
                 NDBG_PRINT("rule: %s missing tx field: %s.\n", a_rule.ShortDebugString().c_str(), _str);\
                 return WAFLZ_STATUS_ERROR; \
         } \
-        _val = atoi(i_t->second.c_str()); \
+        _val = strtoul(i_t->second.c_str(), nullptr, 10); \
 } while(0)
-        // -------------------------------------------------
-        // *************************************************
-        // handling anomaly mode natively...
-        // *************************************************
-        // -------------------------------------------------
-#ifdef WAFLZ_NATIVE_ANOMALY_MODE
-        // -------------------------------------------------
-        // get field values...
-        // -------------------------------------------------
-        int32_t l_threshold = -1;
+        uint32_t l_threshold = 0;
+        cx_map_t::const_iterator i_t;
         _GET_TX_FIELD("inbound_anomaly_score_threshold", l_threshold);
-        //NDBG_PRINT("%sl_anomaly_score%s: %d\n", ANSI_COLOR_FG_RED, ANSI_COLOR_OFF, l_anomaly_score);
-        //NDBG_PRINT("%sl_threshold%s:     %d\n", ANSI_COLOR_FG_RED, ANSI_COLOR_OFF, l_threshold);
         // -------------------------------------------------
         // check threshold
         // -------------------------------------------------
-        if(l_anomaly_score >= l_threshold)
+        //NDBG_PRINT("%sl_anomaly_score%s: %d\n", ANSI_COLOR_FG_RED, ANSI_COLOR_OFF, l_anomaly_score);
+        //NDBG_PRINT("%sl_threshold%s:     %d\n", ANSI_COLOR_FG_RED, ANSI_COLOR_OFF, l_threshold);
+        if (l_anomaly_score >= l_threshold)
         {
                 a_ctx.m_intercepted = true;
-        }
-#else
-        // ---------------------------------
-        // handle anomaly mode in ruleset
-        // ---------------------------------
-        UNUSED(l_threshold);
-        if(l_action.has_action_type() &&
-           (l_action.action_type() == waflz_pb::sec_action_t_action_type_t_DENY))
-        {
-                a_ctx.m_intercepted = true;
-        }
-#endif
-        // -------------------------------------------------
-        // check for nolog
-        // -------------------------------------------------
-        if(l_action.has_nolog() &&
-           l_action.nolog() &&
-           l_action.action_type() == ::waflz_pb::sec_action_t_action_type_t_PASS)
-        {
-                a_ctx.m_intercepted = false;
-                return WAFLZ_STATUS_OK;
         }
         // -------------------------------------------------
         // skip events w/o messages
         // -------------------------------------------------
-        if(!l_action.has_msg())
-        {
-                return WAFLZ_STATUS_OK;
-        }
+        if (!l_action.has_msg()) { return WAFLZ_STATUS_OK; }
         // -------------------------------------------------
         // create info...
         // -------------------------------------------------
         waflz_pb::event* l_sub_event = NULL;
-        if(!(*ao_event))
+        if (!(*ao_event))
         {
                 *ao_event = new ::waflz_pb::event();
         }
@@ -2201,6 +2670,12 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
         // populate info
         // -------------------------------------------------
         // -------------------------------------------------
+        // bot_action
+        // -------------------------------------------------
+        if (l_action.has_bot_action())
+        {
+                l_sub_event->set_bot_action(l_action.bot_action());
+        }
         // -------------------------------------------------
         // msg
         // -------------------------------------------------
@@ -2217,8 +2692,8 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
         }
         if(!l_msg.empty())
         {
-                 (*ao_event)->set_rule_msg(l_msg);
-                 l_sub_event->set_rule_msg(l_msg);
+                (*ao_event)->set_rule_msg(l_msg);
+                l_sub_event->set_rule_msg(l_msg);
         }
         else
         {
@@ -2235,18 +2710,29 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
                                         waflz_pb::sec_rule_t_operator_t_type_t_descriptor()->FindValueByNumber(a_rule.operator_().type());
                 l_sub_event->set_rule_op_name(l_op_desc->name());
         }
-        if(a_rule.operator_().has_value()) { l_sub_event->set_rule_op_param(a_rule.operator_().value()); }
+        if (a_rule.operator_().has_value())
+        {
+                l_sub_event->set_rule_op_param(a_rule.operator_().value());
+        }
         // -------------------------------------------------
         // tx vars
         // -------------------------------------------------
         l_sub_event->set_total_anomaly_score(l_anomaly_score);
+        a_ctx.m_waf_anomaly_score = l_anomaly_score;
+        // -------------------------------------------------
+        // check if there is an rtu for this rule
+        // NOTE: we add "_0" on the end of the id to 
+        // check for the top level rule variables
+        // -------------------------------------------------
+        update_variable_map_t::const_iterator l_rtu = m_rtu_variable_map.find(a_rule.action().id() + "_0");
+        bool l_has_rtu_variables = l_rtu != m_rtu_variable_map.end(); 
         // -------------------------------------------------
         // rule targets
         // -------------------------------------------------
         //NDBG_PRINT("rule matched %s\n", a_rule.DebugString().c_str());
         for(int32_t i_k = 0; i_k < a_rule.variable_size(); ++i_k)
         {
-                const waflz_pb::variable_t &l_var = a_rule.variable(i_k);
+                const waflz_pb::variable_t &l_var = (l_has_rtu_variables) ? l_rtu->second[i_k] : a_rule.variable(i_k);
                 const google::protobuf::EnumValueDescriptor* l_var_desc =
                                        waflz_pb::variable_t_type_t_descriptor()->FindValueByNumber(l_var.type());
                 waflz_pb::event::var_t *l_mvar = NULL;
@@ -2254,15 +2740,14 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
                 // -----------------------------------------
                 // counting???
                 // -----------------------------------------
-                if(l_var.has_is_count() &&
-                   l_var.is_count())
+                if (l_var.has_is_count() && l_var.is_count())
                 {
                         l_mvar->set_is_counting(true);
                 }
                 // -----------------------------------------
                 // no match info
                 // -----------------------------------------
-                if(l_var.match_size() <= 0)
+                if (l_var.match_size() <= 0)
                 {
                         l_mvar->set_name(l_var_desc->name());
                         continue;
@@ -2270,7 +2755,7 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
                 // -----------------------------------------
                 // for each match...
                 // -----------------------------------------
-                for(int32_t i_m = 0; i_m < l_var.match_size(); ++i_m)
+                for (int32_t i_m = 0; i_m < l_var.match_size(); ++i_m)
                 {
                         // ---------------------------------
                         // name
@@ -2280,14 +2765,14 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
                         // value
                         // ---------------------------------
                         const waflz_pb::variable_t_match_t &l_match = l_var.match(i_m);
-                        if(!l_match.value().empty())
+                        if (!l_match.value().empty())
                         {
                                 // -------------------------
                                 // fix up string to indicate
                                 // is regex
                                 // -------------------------
                                 std::string l_val = l_match.value();
-                                if(l_match.is_regex())
+                                if (l_match.is_regex())
                                 {
                                         l_val.insert(0, "/");
                                         l_val += "/";
@@ -2303,9 +2788,6 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
                         }
                 }
         }
-        // -------------------------------------------------
-        // rule tags
-        // -------------------------------------------------
         for(int32_t i_a = 0; i_a < l_action.tag_size(); ++i_a)
         {
                 l_sub_event->add_rule_tag(l_action.tag(i_a));
@@ -2314,7 +2796,6 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
         // intercept status
         // -------------------------------------------------
         l_sub_event->set_rule_intercept_status(HTTP_STATUS_FORBIDDEN);
-#define CAP_LEN(_len) (_len > 1024 ? 1024: _len)
         waflz_pb::event::var_t* l_m_var = NULL;
         // -------------------------------------------------
         // matched var
@@ -2324,6 +2805,7 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
         // -------------------------------------------------
         // check for no log or sanitized action
         // -------------------------------------------------
+#define CAP_LEN(_len) (_len > 1024 ? 1024: _len)
         if(l_action.sanitisematched() ||
            m_no_log_matched)
         {
@@ -2333,6 +2815,36 @@ int32_t waf::process_match(waflz_pb::event** ao_event,
         {
                 l_m_var->set_value(a_ctx.m_cx_matched_var.c_str(), CAP_LEN(a_ctx.m_cx_matched_var.length()));
         }
+        // -------------------------------------------------
+        // check for redacted vars and replace on match
+        // -------------------------------------------------
+        for(redacted_var_list_t::const_iterator i_rv = m_redacted_vars.begin();
+            i_rv != m_redacted_vars.end();
+            ++i_rv)
+        {
+                regex* l_match_on = std::get<0>(*i_rv);
+                if ( l_match_on->compare(a_ctx.m_cx_matched_var_name) > 0 )
+                {
+                        // ---------------------------------
+                        // replace value on match
+                        // ---------------------------------
+                        std::string l_v_replace = std::get<1>(*i_rv);
+                        l_m_var->set_value(l_v_replace);
+                        // ---------------------------------
+                        // replace name if provided
+                        // ---------------------------------
+                        std::string l_n_replace = std::get<2>(*i_rv);
+                        if (l_n_replace.length())
+                        {
+                                a_ctx.m_cx_matched_var_name = l_n_replace;
+                                l_m_var->set_name(a_ctx.m_cx_matched_var_name);
+                        }
+                        break;
+                }
+        }
+        // -------------------------------------------------
+        // return done processing match
+        // -------------------------------------------------
         return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
@@ -2372,7 +2884,7 @@ int32_t waf::process_phase(waflz_pb::event **ao_event,
                 if(l_d.has_sec_action())
                 {
                         const waflz_pb::sec_action_t &l_a = l_d.sec_action();
-                        int32_t l_s = process_action_nd(l_a, a_ctx);
+                        int32_t l_s = process_action_nd(l_a, a_ctx, std::string());
                         if(l_s != WAFLZ_STATUS_OK)
                         {
                                 NDBG_PRINT("error processing rule\n");
@@ -2441,12 +2953,32 @@ int32_t waf::process_resp_match(waflz_pb::event** ao_event,
                                 const waflz_pb::sec_rule_t& a_rule,
                                 resp_ctx& a_ctx)
 {
-        if(!ao_event ||
-           !a_rule.has_action())
+        // -------------------------------------------------
+        // error if we already have an event or no action
+        // -------------------------------------------------
+        if (!ao_event || !a_rule.has_action())
         {
                 return WAFLZ_STATUS_ERROR;
         }
+        // -------------------------------------------------
+        // save action and rule id for later
+        // -------------------------------------------------
         const waflz_pb::sec_action_t &l_action = a_rule.action();
+        const std::string l_rule_id = l_action.id();
+        // -------------------------------------------------
+        // if no log, then quick return
+        // -------------------------------------------------
+        const bool l_action_is_pass = (
+                l_action.action_type() == 
+                ::waflz_pb::sec_action_t_action_type_t_PASS
+        );
+        const bool l_is_no_log = (
+                l_action.has_nolog() && l_action.nolog()
+        );
+        if ( l_is_no_log && l_action_is_pass )
+        {
+                return WAFLZ_STATUS_OK;
+        }
         // -------------------------------------------------
         // compare...
         // -------------------------------------------------
@@ -2454,116 +2986,48 @@ int32_t waf::process_resp_match(waflz_pb::event** ao_event,
         // 2. get "inbound_anomaly_score_threshold" or "inbound_anomaly_score_level" --> threshold
         // 3. if(l_score >= l_threshold) mark as intercepted...
         // -------------------------------------------------
-        cx_map_t::const_iterator i_t;
-        int32_t l_anomaly_score = -1;
+        uint32_t l_anomaly_score = 0;
         // -------------------------------------------------
-        // handle paranoia...
-        // Based on paranoia level different rules set
-        // different scores. The CRS uses the following vars
-        // tx.outbound_anomaly_score_pl1
-        // tx.outbound_anomaly_score_pl2
-        // tx.outbound_anomaly_score_pl3
-        // tx.outbound_anomaly_score_pl4
+        // calculate anomaly score if chain_rule or vars
+        // are set
+        // e.g setvar:'tx.anomaly_score_pl1=+%{tx.notice_anomaly_score}
         // -------------------------------------------------
-        // Here we emulate the blocking evaluation config
-        // 1. Check current paranoia level
-        // 2. Sum up all pl scores until current pl
-        // 3. Set the anomaly_score = sum of #2
-        // -------------------------------------------------
-        // Only calculate score if the rule is setting a var
-        // e.g setvar:'tx.outbound_anomaly_score_pl2=+%{tx.notice_anomaly_score}
-        // Or is a chained rule
-        // -------------------------------------------------
-        if(l_action.setvar_size() > 0 ||
-            a_rule.chained_rule_size() > 0)
+        const bool l_vars_set = l_action.setvar_size() > 0;
+        const bool l_is_chain_rule = a_rule.chained_rule_size() > 0;
+        if ( l_vars_set || l_is_chain_rule )
         {
-                uint32_t l_cur_anomaly = 0;
-                uint32_t i_pl = 1;
-                do
-                {
-                        std::string l_ex_anomaly = "outbound_anomaly_score_pl" + to_string(i_pl);
-                        i_t = a_ctx.m_cx_tx_map.find(l_ex_anomaly);
-                        if(i_t == a_ctx.m_cx_tx_map.end())
-                        {
-                                ++i_pl;
-                                continue;
-                        }
-                        long int l_pl_score;
-                        char *l_end_ptr = NULL;
-                        l_pl_score = strntol(i_t->second.c_str(), i_t->second.length(), &l_end_ptr, 10);
-                        if((l_pl_score == LONG_MAX) ||
-                            (l_pl_score == LONG_MIN) ||
-                            (l_pl_score < 0))
-                        {
-                                ++i_pl;
-                                continue;
-                        }
-                        if(l_end_ptr == i_t->second.c_str())
-                        {
-                                ++i_pl;
-                                continue;
-                        }
-                        l_cur_anomaly += (uint32_t)l_pl_score;
-                        ++i_pl;
-                } while(m_paranoia_level >= i_pl);
-                if(l_cur_anomaly)
-                {
-                        a_ctx.m_cx_tx_map["anomaly_score"]  = to_string(l_cur_anomaly);
-                }
+                l_anomaly_score = this->calculate_rule_anomaly_score(a_ctx.m_cx_tx_map, false);
         }
-        // -------------------------------------------------
-        // get anomaly score
-        // -------------------------------------------------
-        i_t = a_ctx.m_cx_tx_map.find("anomaly_score");
-        if(i_t == a_ctx.m_cx_tx_map.end())
-        {
-                return WAFLZ_STATUS_OK;
-        }
-        // -------------------------------------------------
-        // TODO -use strntol instead
-        // of atoi...
-        // -------------------------------------------------
-        l_anomaly_score = atoi(i_t->second.c_str());
-        // -------------------------------------------------
+       // -------------------------------------------------
         // skip if no anomaly score and
         // w/o action or PASS types...
         // -------------------------------------------------
-        if((l_anomaly_score <= 0) &&
-           (!l_action.has_action_type() ||
-            (l_action.action_type() == ::waflz_pb::sec_action_t_action_type_t_PASS)))
+        const bool l_has_passible_action =
+            (!l_action.has_action_type() || l_action_is_pass);
+        if ((l_anomaly_score <= 0) && l_has_passible_action)
         {
                 return WAFLZ_STATUS_OK;
         }
-#ifdef WAFLZ_NATIVE_ANOMALY_MODE
         // -------------------------------------------------
         // skip logging events not contributing to anomaly
         // action
         // -------------------------------------------------
-        if(m_anomaly_score_cur >= l_anomaly_score &&
-           l_action.action_type() == waflz_pb::sec_action_t_action_type_t_PASS)
+        bool l_seen_higher_score_before = m_anomaly_score_cur >= l_anomaly_score;
+        if (l_seen_higher_score_before && l_action_is_pass)
         {
                 return WAFLZ_STATUS_OK;
         }
         m_anomaly_score_cur = l_anomaly_score;
-#endif
-#define _GET_TX_FIELD(_str, _val) do { \
-        i_t = a_ctx.m_cx_tx_map.find(_str); \
-        if(i_t == a_ctx.m_cx_tx_map.end()) { \
-                NDBG_PRINT("rule: %s missing tx field: %s.\n", a_rule.ShortDebugString().c_str(), _str);\
-                return WAFLZ_STATUS_ERROR; \
-        } \
-        _val = atoi(i_t->second.c_str()); \
-} while(0)
         // -------------------------------------------------
         // *************************************************
         // handling anomaly mode natively...
         // *************************************************
         // -------------------------------------------------
-#ifdef WAFLZ_NATIVE_ANOMALY_MODE
         // -------------------------------------------------
         // get field values...
         // -------------------------------------------------
-        int32_t l_threshold = -1;
+        uint32_t l_threshold = 0;
+        cx_map_t::const_iterator i_t;
         _GET_TX_FIELD("outbound_anomaly_score_threshold", l_threshold);
         //NDBG_PRINT("%sl_anomaly_score%s: %d\n", ANSI_COLOR_FG_RED, ANSI_COLOR_OFF, l_anomaly_score);
         //NDBG_PRINT("%sl_threshold%s:     %d\n", ANSI_COLOR_FG_RED, ANSI_COLOR_OFF, l_threshold);
@@ -2574,34 +3038,10 @@ int32_t waf::process_resp_match(waflz_pb::event** ao_event,
         {
                 a_ctx.m_intercepted = true;
         }
-#else
-        // ---------------------------------
-        // handle anomaly mode in ruleset
-        // ---------------------------------
-        UNUSED(l_threshold);
-        if(l_action.has_action_type() &&
-           (l_action.action_type() == waflz_pb::sec_action_t_action_type_t_DENY))
-        {
-                a_ctx.m_intercepted = true;
-        }
-#endif
-        // -------------------------------------------------
-        // check for nolog
-        // -------------------------------------------------
-        if(l_action.has_nolog() &&
-           l_action.nolog() &&
-           l_action.action_type() == ::waflz_pb::sec_action_t_action_type_t_PASS)
-        {
-                a_ctx.m_intercepted = false;
-                return WAFLZ_STATUS_OK;
-        }
         // -------------------------------------------------
         // skip events w/o messages
         // -------------------------------------------------
-        if(!l_action.has_msg())
-        {
-                return WAFLZ_STATUS_OK;
-        }
+        if (!l_action.has_msg()) { return WAFLZ_STATUS_OK; }
         // -------------------------------------------------
         // create info...
         // -------------------------------------------------
@@ -2657,10 +3097,17 @@ int32_t waf::process_resp_match(waflz_pb::event** ao_event,
         // -------------------------------------------------
         // rule targets
         // -------------------------------------------------
+        // -------------------------------------------------
+        // check if there is an rtu for this rule
+        // NOTE: we add "_0" on the end of the id to 
+        // check for the top level rule variables
+        // -------------------------------------------------
+        update_variable_map_t::const_iterator l_rtu = m_rtu_variable_map.find(a_rule.action().id() + "_0");
+        bool l_has_rtu_variables = l_rtu != m_rtu_variable_map.end(); 
         //NDBG_PRINT("rule matched %s\n", a_rule.DebugString().c_str());
         for(int32_t i_k = 0; i_k < a_rule.variable_size(); ++i_k)
         {
-                const waflz_pb::variable_t &l_var = a_rule.variable(i_k);
+                const waflz_pb::variable_t &l_var = (l_has_rtu_variables) ? l_rtu->second[i_k] : a_rule.variable(i_k);
                 const google::protobuf::EnumValueDescriptor* l_var_desc =
                                        waflz_pb::variable_t_type_t_descriptor()->FindValueByNumber(l_var.type());
                 waflz_pb::event::var_t *l_mvar = NULL;
@@ -2717,9 +3164,6 @@ int32_t waf::process_resp_match(waflz_pb::event** ao_event,
                         }
                 }
         }
-        // -------------------------------------------------
-        // rule tags
-        // -------------------------------------------------
         for(int32_t i_a = 0; i_a < l_action.tag_size(); ++i_a)
         {
                 l_sub_event->add_rule_tag(l_action.tag(i_a));
@@ -2728,21 +3172,52 @@ int32_t waf::process_resp_match(waflz_pb::event** ao_event,
         // intercept status
         // -------------------------------------------------
         // -------------------------------------------------
-        l_sub_event->set_rule_intercept_status(HTTP_STATUS_FORBIDDEN);
-#define CAP_LEN(_len) (_len > 1024 ? 1024: _len)
+        // Special logic for handling bot rules:
+        // auditlog+pass  = log req + allow req
+        // auditlog+block = log req + custom action for auth
+        // auditlog+deny  = log req + block req
+        // -------------------------------------------------
+        if(l_action.has_auditlog())
+        {
+
+                switch (l_action.action_type())
+                {
+                case ::waflz_pb::sec_action_t_action_type_t_PASS:
+                {
+                        l_sub_event->set_rule_intercept_status(HTTP_STATUS_OK);
+                        break;
+                }
+                case ::waflz_pb::sec_action_t_action_type_t_BLOCK:
+                {
+                        l_sub_event->set_rule_intercept_status(HTTP_STATUS_AUTHENTICATION_REQUIRED);
+                        break;
+                }
+                // Rules that outright want to deny request
+                case ::waflz_pb::sec_action_t_action_type_t_DENY:
+                {
+                        l_sub_event->set_rule_intercept_status(HTTP_STATUS_FORBIDDEN);
+                        break;
+                }
+                default:
+                        l_sub_event->set_rule_intercept_status(HTTP_STATUS_FORBIDDEN);
+                }
+        }
+        else
+        {
+                l_sub_event->set_rule_intercept_status(HTTP_STATUS_FORBIDDEN);
+        }
         waflz_pb::event::var_t* l_m_var = NULL;
         // -------------------------------------------------
         // matched var
         // -------------------------------------------------
         l_m_var = l_sub_event->mutable_matched_var();
         l_m_var->set_name(a_ctx.m_cx_matched_var_name);
-
         //WFLZ_TRC_MATCH("MATCHED VAR NAME: %s", a_ctx.m_cx_matched_var_name.c_str());
         // -------------------------------------------------
         // check for no log or sanitized action
         // -------------------------------------------------
-        if(l_action.sanitisematched() ||
-           m_no_log_matched)
+#define CAP_LEN(_len) (_len > 1024 ? 1024: _len)
+        if (l_action.sanitisematched() || m_no_log_matched)
         {
                 l_m_var->set_value("**SANITIZED**");
         }
@@ -2750,6 +3225,36 @@ int32_t waf::process_resp_match(waflz_pb::event** ao_event,
         {
                 l_m_var->set_value(a_ctx.m_cx_matched_var.c_str(), CAP_LEN(a_ctx.m_cx_matched_var.length()));
         }
+        // -------------------------------------------------
+        // check for redacted vars
+        // -------------------------------------------------
+        for(redacted_var_list_t::const_iterator i_rv = m_redacted_vars.begin();
+            i_rv != m_redacted_vars.end();
+            ++i_rv)
+        {
+                regex* l_match_on = std::get<0>(*i_rv);
+                if ( l_match_on->compare(a_ctx.m_cx_matched_var_name) > 0 )
+                {
+                        // ---------------------------------
+                        // replace value on match
+                        // ---------------------------------
+                        std::string l_v_replace = std::get<1>(*i_rv);
+                        l_m_var->set_value(l_v_replace);
+                        // ---------------------------------
+                        // replace name if provided
+                        // ---------------------------------
+                        std::string l_n_replace = std::get<2>(*i_rv);
+                        if (l_n_replace.length())
+                        {
+                                a_ctx.m_cx_matched_var_name = l_n_replace;
+                                l_m_var->set_name(a_ctx.m_cx_matched_var_name);
+                        }
+                        break;
+                }
+        }
+        // -------------------------------------------------
+        // return done processing match
+        // -------------------------------------------------
         return WAFLZ_STATUS_OK;
 }
 /// ----------------------------------------------------------------------------
@@ -2758,7 +3263,7 @@ int32_t waf::process_resp_match(waflz_pb::event** ao_event,
 /// @return WAFLZ_STATUS_ERROR or WAFLZ_STATUS_OK
 /// ----------------------------------------------------------------------------
 int32_t waf::process_resp_action_nd(const waflz_pb::sec_action_t &a_action,
-                                    resp_ctx &a_ctx)
+                                    resp_ctx &a_ctx, std::string a_rule_id)
 {
         // -------------------------------------------------
         // check for skip
@@ -2790,10 +3295,32 @@ int32_t waf::process_resp_action_nd(const waflz_pb::sec_action_t &a_action,
                 //           ANSI_COLOR_FG_GREEN, l_sv.ShortDebugString().c_str(), ANSI_COLOR_OFF);
 
                 //------------------------------------------
-                // var expansion
+                // var before expansion
                 //------------------------------------------
                 const ::std::string& l_var = l_sv.var();
                 const std::string *l_var_ref = &l_var;
+                //------------------------------------------
+                // check if this is being ran by a rule
+                // action + if we are looking at score
+                // value
+                //------------------------------------------
+                bool l_in_rule = !a_rule_id.empty();
+                bool l_is_anomaly_score = tx_val_is_score(l_var);
+                if (l_in_rule && l_is_anomaly_score)
+                {
+                        //----------------------------------
+                        // apply custom score if available
+                        //----------------------------------
+                        auto l_custom_score = m_custom_score_map.find( a_rule_id );
+                        if (l_custom_score != m_custom_score_map.end())
+                        {
+                                a_ctx.m_cx_tx_map[l_var] = to_string(l_custom_score->second);
+                                continue;
+                        }
+                }
+                //------------------------------------------
+                // var expansion
+                //------------------------------------------
                 std::string l_sv_var;
                 if(l_macro.has(l_var))
                 {
@@ -2956,7 +3483,8 @@ int32_t waf::process_resp_action_nd(const waflz_pb::sec_action_t &a_action,
 int32_t waf::process_resp_rule_part(waflz_pb::event **ao_event,
                                         bool &ao_match,
                                         const waflz_pb::sec_rule_t &a_rule,
-                                        resp_ctx &a_ctx)
+                                        resp_ctx &a_ctx,
+                                        const rule_information_t a_rule_information)
 {
         macro *l_macro =  &(m_engine.get_macro());
         ao_match = false;
@@ -2975,6 +3503,14 @@ int32_t waf::process_resp_rule_part(waflz_pb::event **ao_event,
         op_t l_op_cb = NULL;
         l_op_cb = get_op_cb(l_op.type());
         // -------------------------------------------------
+        // check if rtu variables exist
+        // -------------------------------------------------
+        std::string l_rtu_key = a_rule_information.m_parent_rule_id + "_" + to_string(a_rule_information.m_depth);
+        auto l_rtu_map_iterator = m_rtu_variable_map.find(l_rtu_key);
+        bool l_rtu_variables_exist = l_rtu_map_iterator != m_rtu_variable_map.end();
+        std::vector<waflz_pb::variable_t> l_rtu_variables;
+        if (l_rtu_variables_exist) { l_rtu_variables = l_rtu_map_iterator->second; }
+        // -------------------------------------------------
         // variable loop
         // -------------------------------------------------
         uint32_t l_var_count = 0;
@@ -2983,7 +3519,7 @@ int32_t waf::process_resp_rule_part(waflz_pb::event **ao_event,
                 // -----------------------------------------
                 // get var cb
                 // -----------------------------------------
-                const waflz_pb::variable_t& l_var = a_rule.variable(i_var);
+                const waflz_pb::variable_t& l_var = (l_rtu_variables_exist) ? l_rtu_variables[i_var] : a_rule.variable(i_var);
                 if(!l_var.has_type())
                 {
                         return WAFLZ_STATUS_OK;
@@ -3225,7 +3761,7 @@ a_ctx.m_cx_rule_map[l_k] = l_v; \
                 // TODO -only run
                 // non-disruptive???
                 // -----------------------------------------
-                int32_t l_s = process_resp_action_nd(l_a, a_ctx);
+                int32_t l_s = process_resp_action_nd(l_a, a_ctx, a_rule_information.m_parent_rule_id);
                 if(l_s == WAFLZ_STATUS_ERROR)
                 {
                         NDBG_PRINT("error executing action");
@@ -3254,6 +3790,10 @@ int32_t waf::process_resp_rule(waflz_pb::event **ao_event,
                                resp_ctx &a_ctx)
 {
         // -------------------------------------------------
+        // top level rule id
+        // -------------------------------------------------
+        const std::string l_rule_id = a_rule.action().id();
+        // -------------------------------------------------
         // chain rule loop
         // -------------------------------------------------
         const waflz_pb::sec_rule_t *l_rule = NULL;
@@ -3262,6 +3802,10 @@ int32_t waf::process_resp_rule(waflz_pb::event **ao_event,
         do {
                 //NDBG_PRINT("RULE[%4d]************************************\n", l_cr_idx);
                 //NDBG_PRINT("l_cr_idx: %d\n", l_cr_idx);
+                // -------------------------------------------------
+                // construct id for rtu variables
+                // -------------------------------------------------
+                uint32_t l_rule_depth = l_cr_idx + 1;
                 if(l_cr_idx == -1)
                 {
                         l_rule = &a_rule;
@@ -3295,10 +3839,11 @@ int32_t waf::process_resp_rule(waflz_pb::event **ao_event,
                 }
                 int32_t l_s;
                 i_match = false;
-                l_s = process_resp_rule_part(ao_event,
-                                                 i_match,
-                                                 *l_rule,
-                                                 a_ctx);
+                rule_information_t l_rule_information;
+                l_rule_information.m_parent_rule_id = l_rule_id;
+                l_rule_information.m_depth = l_rule_depth;
+                l_s = process_resp_rule_part(
+                    ao_event, i_match, *l_rule, a_ctx, l_rule_information);
                 if(l_s != WAFLZ_STATUS_OK)
                 {
                         //WAFLZ_PERROR(m_err_msg, "bad chained rule idx: %d -size: %d",
@@ -3376,7 +3921,7 @@ int32_t waf::process_resp_phase(waflz_pb::event **ao_event,
                 if(l_d.has_sec_action())
                 {
                         const waflz_pb::sec_action_t &l_a = l_d.sec_action();
-                        int32_t l_s = process_resp_action_nd(l_a, a_ctx);
+                        int32_t l_s = process_resp_action_nd(l_a, a_ctx, "");
                         if(l_s != WAFLZ_STATUS_OK)
                         {
                                 NDBG_PRINT("error processing rule\n");
@@ -3478,7 +4023,7 @@ int32_t waf::process_response(waflz_pb::event **ao_event,
         // -------------------------------------------------
         // init
         // -------------------------------------------------
-        l_s = l_ctx->init_phase_3();
+        l_s = l_ctx->init_phase_3(m_engine.get_geoip2_mmdb());
         if(l_s != WAFLZ_STATUS_OK)
         {
                 // TODO -log error???
@@ -3549,10 +4094,6 @@ report:
                 ::waflz_pb::event_var_t* l_ev = l_event.add_rule_target();
                 l_ev->set_name("TX");
                 l_ev->set_param("ANOMALY_SCORE");
-                // -----------------------------------------
-                // rule tag...
-                // -----------------------------------------
-                l_event.add_rule_tag()->assign("OWASP_CRS/ANOMALY/EXCEEDED");
                 // -----------------------------------------
                 // matched_var...
                 // -----------------------------------------
@@ -3631,7 +4172,7 @@ int32_t waf::process(waflz_pb::event **ao_event,
         // -------------------------------------------------
         // init
         // -------------------------------------------------
-        l_s = l_ctx->init_phase_1(m_engine.get_geoip2_mmdb());
+        l_s = l_ctx->init_phase_1(m_engine);
         if(l_s != WAFLZ_STATUS_OK)
         {
                 // TODO -log error???
@@ -3749,46 +4290,6 @@ report:
         {
                 l_event.set_waf_profile_id(m_id);
                 l_event.set_waf_profile_name(m_name);
-        }
-        // -------------------------------------------------
-        // add info from last subevent...
-        // -------------------------------------------------
-        // TODO -should we???
-        //      -seems redundant
-        // -------------------------------------------------
-        if(l_event.sub_event_size())
-        {
-                const ::waflz_pb::event& l_se = l_event.sub_event(l_event.sub_event_size() - 1);
-                // -----------------------------------------
-                // rule target...
-                // -----------------------------------------
-                ::waflz_pb::event_var_t* l_ev = l_event.add_rule_target();
-                l_ev->set_name("TX");
-                l_ev->set_param("ANOMALY_SCORE");
-                // -----------------------------------------
-                // rule tag...
-                // -----------------------------------------
-                l_event.add_rule_tag()->assign("OWASP_CRS/ANOMALY/EXCEEDED");
-                // -----------------------------------------
-                // matched_var...
-                // -----------------------------------------
-                if(l_se.has_matched_var())
-                {
-                        l_event.mutable_matched_var()->CopyFrom(l_se.matched_var());
-                }
-                // -----------------------------------------
-                // Custom rules wont have an anomaly score
-                // and setvar for rule msg. Set them here
-                // -----------------------------------------
-                if (a_custom_rules)
-                {
-                        l_event.set_rule_msg(l_se.rule_msg());
-                }
-                // -----------------------------------------
-                // op
-                // -----------------------------------------
-                l_event.mutable_rule_op_name()->assign("gt");
-                l_event.mutable_rule_op_param()->assign("0");
         }
 #define _SET_IF_EXIST(_str, _field) do { \
 if(l_ctx->m_cx_tx_map.find(_str) != l_ctx->m_cx_tx_map.end()) \

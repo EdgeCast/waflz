@@ -11,6 +11,11 @@ message op_t {
                 GLOB = 4;
                 EM = 5;
                 IPMATCH = 6;
+                EQ = 7;
+                LE = 8;
+                GE = 9;
+                LT = 10;
+                GT = 11;
         }
         optional type_t type = 1;
         optional string value = 2;
@@ -76,6 +81,17 @@ message scope {
         optional uint64 _profile_prod__reserved = 3110;
         optional enforcement profile_prod_action = 3120;
         // -------------------------------------------------
+        // bots_prod_id and action - to be deprecated
+        // -------------------------------------------------
+        optional string bots_prod_id = 3121;
+        optional uint64 _bots_prod__reserved = 3122;
+        optional enforcement bots_prod_action = 3123;
+        // -------------------------------------------------
+        // bot_manager_config
+        // -------------------------------------------------
+        optional string bot_manager_config_id = 3124;
+        optional uint64 _bot_manager_config__reserved = 3125;
+        // -------------------------------------------------
         // api_gw
         // -------------------------------------------------
         // audit
@@ -86,6 +102,15 @@ message scope {
         optional string api_gw_prod_id = 3230;
         optional uint64 _api_gw_prod__reserved = 3240;
         optional enforcement api_gw_prod_action = 3250;
+        // -------------------------------------------------
+        // client side
+        // -------------------------------------------------
+        optional string client_waf_config_id = 3260;
+        optional uint64 _client_waf_config__reserved = 3270;
+        // ------------------------------------------------
+        // Origin signalling
+        // -------------------------------------------------
+        repeated enforcement.header_t origin_signal_headers  = 3300;
         // -------------------------------------------------
         // limits
         // -------------------------------------------------
@@ -110,7 +135,9 @@ message scope_config {
         optional string last_modified_date = 5;
         optional string last_modified_by = 6;
         optional string account_type = 7;
-	optional string partner_id = 8;
+        optional string partner_id = 8;
+        optional string bot_tier = 9;
+        optional bool team_config = 10;
         // -------------------------------------------------
         // scopes
         // -------------------------------------------------

@@ -13,5 +13,5 @@ if [ -n "$1" ]; then
     pytest -v $1
 else
     #--durations=2 ==> find out which tests are the slowest. 
-    pytest -v --durations=2 ${TESTS_LOCATION}
+    pytest -v -s --durations=2 ${TESTS_LOCATION}
 fi

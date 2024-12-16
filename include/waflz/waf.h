@@ -18,6 +18,7 @@
 #include "waflz/rqst_ctx.h"
 #include "waflz/resp_ctx.h"
 #include <set>
+#include <vector>
 //! ----------------------------------------------------------------------------
 //! constants
 //! ----------------------------------------------------------------------------
@@ -29,9 +30,12 @@ namespace waflz_pb {
 class sec_config_t;
 class sec_rule_t;
 class sec_action_t;
+class profile_custom_score_t;
 class directive_t;
+class variable_t;
 class event;
 };
+
 namespace ns_waflz {
 //! ----------------------------------------------------------------------------
 //! fwd decl's
@@ -46,6 +50,7 @@ class profile;
 //! ----------------------------------------------------------------------------
 //! types
 //! ----------------------------------------------------------------------------
+typedef std::map <std::string, std::vector<::waflz_pb::variable_t>> update_variable_map_t;
 typedef std::list<regex *> regex_list_t;
 typedef std::list<ac *> ac_list_t;
 typedef std::list<nms *> nms_list_t;
@@ -54,6 +59,16 @@ typedef std::list<const ::waflz_pb::directive_t *> directive_list_t;
 typedef std::map<std::string, directive_list_t::const_iterator> marker_map_t;
 typedef std::map<std::string, waflz_pb::enforcement*> action_map_t;
 typedef std::set<std::string> disabled_rule_id_set_t;
+typedef struct _rule_information {
+        std::string m_parent_rule_id;
+        uint32_t m_depth;
+        _rule_information()
+            : m_parent_rule_id(),
+              m_depth()
+        {};
+} rule_information_t;
+typedef std::tuple<regex *, std::string, std::string> redacted_var_t;
+typedef std::list<redacted_var_t> redacted_var_list_t;
 typedef struct _compiled_config {
         // phase 1
         marker_map_t m_marker_map_phase_1;
@@ -99,12 +114,15 @@ public:
         // -------------------------------------------------
         waf(engine &a_engine);
         ~waf();
+        void process_multi_custom_score_entry( waflz_pb::profile_custom_score_t& a_custom_score );
+        uint32_t calculate_rule_anomaly_score( cx_map_t& a_ctx_map, bool a_inbound );
         int32_t process(waflz_pb::event **ao_event, void *a_ctx, rqst_ctx **ao_rqst_ctx = NULL, bool a_custom_rules = false);
         int32_t process_response(waflz_pb::event **ao_event, void *a_ctx, resp_ctx **ao_resp_ctx = NULL, bool a_custom_rules = false);
         int32_t init(profile &a_profile);
         int32_t init(config_parser::format_t a_format, const std::string &a_path, bool a_apply_defaults = false, bool a_custom_rules = false);
         int32_t init(void* a_js, bool a_apply_defaults = false, bool a_custom_rules = false);
         int32_t get_str(std::string &ao_str, config_parser::format_t a_format);
+        int32_t verify_bot_actions(action_map_t a_actions);
         const char *get_err_msg(void) { return m_err_msg; }
         waflz_pb::sec_config_t* get_pb(void) { return m_pb; }
         const std::string& get_id(void) { return m_id; }
@@ -123,6 +141,9 @@ public:
         uint32_t get_paranoia_level(void) { return m_paranoia_level; }
         bool get_parse_xml(void) { return m_parse_xml; }
         bool get_parse_json(void) { return m_parse_json; }
+        update_variable_map_t *get_rtu_map(void) { return &m_rtu_variable_map; }
+        std::map<std::string, uint32_t> *get_custom_score_map(void) { return &m_custom_score_map; }
+        bool is_team_config(void) { return m_team_config; }
         uint32_t get_request_body_in_memory_limit(void);
 private:
         // -------------------------------------------------
@@ -134,21 +155,24 @@ private:
         // -------------------------------------------------
         waf(const waf &);
         waf& operator=(const waf &);
+        int32_t verify_bot_actions_for_directive_list(action_map_t a_actions,
+                                                      directive_list_t a_directive_list);
+        void clear_redacted_variables_list();
         // -------------------------------------------------
         // process request
         // -------------------------------------------------
         int32_t process_phase(waflz_pb::event **ao_event, const directive_list_t &a_dl, const marker_map_t &a_mm, rqst_ctx &a_ctx);
         int32_t process_rule(waflz_pb::event **ao_event, const waflz_pb::sec_rule_t &a_rule, rqst_ctx &a_ctx);
-        int32_t process_rule_part(waflz_pb::event **ao_event, bool &ao_match, const waflz_pb::sec_rule_t &a_rule, rqst_ctx &a_ctx);
-        int32_t process_action_nd(const waflz_pb::sec_action_t &a_action, rqst_ctx &a_ctx);
+        int32_t process_rule_part(waflz_pb::event **ao_event, bool &ao_match, const waflz_pb::sec_rule_t &a_rule, rqst_ctx &a_ctx, const rule_information_t a_rule_information);
+        int32_t process_action_nd(const waflz_pb::sec_action_t &a_action, rqst_ctx &a_ctx, const std::string a_rule_id);
         int32_t process_match(waflz_pb::event **ao_event, const waflz_pb::sec_rule_t &a_rule, rqst_ctx &a_ctx);
         // -------------------------------------------------
         // process response
         // -------------------------------------------------
         int32_t process_resp_phase(waflz_pb::event **ao_event, const directive_list_t &a_dl, const marker_map_t &a_mm, resp_ctx &a_ctx);
         int32_t process_resp_rule(waflz_pb::event **ao_event, const waflz_pb::sec_rule_t &a_rule, resp_ctx &a_ctx);
-        int32_t process_resp_rule_part(waflz_pb::event **ao_event, bool &ao_match, const waflz_pb::sec_rule_t &a_rule, resp_ctx &a_ctx);
-        int32_t process_resp_action_nd(const waflz_pb::sec_action_t &a_action, resp_ctx &a_ctx);
+        int32_t process_resp_rule_part(waflz_pb::event **ao_event, bool &ao_match, const waflz_pb::sec_rule_t &a_rule, resp_ctx &a_ctx, const rule_information_t a_rule_information);
+        int32_t process_resp_action_nd(const waflz_pb::sec_action_t &a_action, resp_ctx &a_ctx, const std::string a_rule_id);
         int32_t process_resp_match(waflz_pb::event **ao_event, const waflz_pb::sec_rule_t &a_rule, resp_ctx &a_ctx);
         // -------------------------------------------------
         // compile
@@ -165,11 +189,17 @@ private:
         compiled_config_t *m_compiled_config;
         ctype_parser_map_t m_ctype_parser_map;
         // -------------------------------------------------
+        // rtu variable map
+        // -------------------------------------------------
+        update_variable_map_t m_rtu_variable_map;
+        std::map<std::string, uint32_t> m_custom_score_map;
+        // -------------------------------------------------
         // modifications
         // -------------------------------------------------
+        redacted_var_list_t m_redacted_vars;
         directive_list_t m_mx_rule_list;
 #ifdef WAFLZ_NATIVE_ANOMALY_MODE
-        int32_t m_anomaly_score_cur;
+        uint32_t m_anomaly_score_cur;
         bool m_is_initd;
         char m_err_msg[WAFLZ_ERR_LEN];
         engine &m_engine;
@@ -184,6 +214,7 @@ private:
         bool m_no_log_matched;
         bool m_parse_xml;
         bool m_parse_json;
+        bool m_team_config;
 #endif
         // -------------------------------------------------
         // sharing private fields with engine...

@@ -56,6 +56,14 @@ public:
                                      ns_is2::session &a_session,
                                      ns_is2::rqst &a_rqst,
                                      const ns_is2::url_pmap_t &a_url_pmap);
+        ns_is2::h_resp_t handle_resp(waflz_pb::enforcement **ao_enf,
+                                     ns_waflz::resp_ctx **ao_ctx,
+                                     ns_waflz::header_map_t** ao_headers,
+                                     ns_is2::subr &a_subr,
+                                     ns_waflz_server::waf_resp_pkg &a_resp_pkg)
+        {
+                return ns_is2::H_RESP_DONE;
+        }
         // -------------------------------------------------
         // public members
         // -------------------------------------------------

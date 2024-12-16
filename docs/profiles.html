@@ -1,20 +1,17 @@
 
 <!DOCTYPE html>
 
-<html lang="en">
+<html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Profiles &#8212; Waflz 0.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
-    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
-    <script src="_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="waflz_server" href="waflz_server.html" />
@@ -35,237 +32,237 @@
 
           <div class="body" role="main">
             
-  <section id="profiles">
-<h1>Profiles<a class="headerlink" href="#profiles" title="Permalink to this heading">¶</a></h1>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
+  <div class="section" id="profiles">
+<h1>Profiles<a class="headerlink" href="#profiles" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
 <p>A waflz “profile” is configuration that builds on top of an existing ruleset.  Beyond the basic ruleset/engine configuration, it adds “access control lists” (ACL’s) for various use-cases we’ve found useful (eg url’s/user-agents/ip’s etc).  ACL’s can of course be expressed in ModSecurity rules as well, but we’ve found it convenient to add ACL’s into the profile json.  A profile just extends a ruleset, however, and a profile w/o a ruleset isn’t useful for much other than outright blocking with ACL’s.</p>
-</section>
-<section id="example-profile-json">
-<h2>Example Profile json<a class="headerlink" href="#example-profile-json" title="Permalink to this heading">¶</a></h2>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Koala Blocking Profile&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WAF Test 13&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;created_date&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;12/02/2018 1:39:46 PM&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;access_settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;ip&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;blacklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">        </span><span class="s2">&quot;2607:f8b0:4007:801::200e&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">],</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;whitelist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"></span>
-<span class="w">    </span><span class="p">},</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;country&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;blacklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">        </span><span class="s2">&quot;AU&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">],</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;whitelist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"></span>
-<span class="w">    </span><span class="p">},</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;blacklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">        </span><span class="s2">&quot;/login/login.jsp&quot;</span><span class="w"></span>
-<span class="w">        </span><span class="p">],</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;whitelist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"></span>
-<span class="w">    </span><span class="p">},</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;user-agent&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;blacklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">        </span><span class="s2">&quot;cerl/7.58.0&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">],</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;whitelist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"></span>
-<span class="w">    </span><span class="p">},</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;referer&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;blacklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">        </span><span class="s2">&quot;http://www.hotzone.com/&quot;</span><span class="w"></span>
-<span class="w">      </span><span class="p">],</span><span class="w"></span>
-<span class="w">      </span><span class="nt">&quot;whitelist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"></span>
-<span class="w">    </span><span class="p">},</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;ignore_header&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">        </span><span class="s2">&quot;(?i)(benign-header)&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="s2">&quot;^D&quot;</span><span class="w"></span>
-<span class="w">    </span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;ignore_cookie&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;(?i)(crazy_cookie)&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;^[0-9_].*$&quot;</span><span class="w"></span>
-<span class="w">    </span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;ignore_query_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;this&quot;</span><span class="w"></span>
-<span class="w">    </span><span class="p">]</span><span class="w"></span>
-<span class="w">  </span><span class="p">},</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;general_settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;allowed_http_methods&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;GET&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;POST&quot;</span><span class="w"></span>
-<span class="w">    </span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;disallowed_extensions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;.bat&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;.db&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;.dll&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;.sql&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;.sys&quot;</span><span class="w"></span>
-<span class="w">    </span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;allowed_request_content_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;application/x-www-form-urlencoded&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;multipart/form-data&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;text/xml&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;application/xml&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;application/json&quot;</span><span class="w"></span>
-<span class="w">    </span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;disallowed_headers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">      </span><span class="s2">&quot;Bad-Header&quot;</span><span class="w"></span>
-<span class="w">    </span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;arg_name_length&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;arg_length&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8000</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;max_num_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;total_arg_length&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64000</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;combined_file_sizes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6291456</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;max_file_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6291456</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;validate_utf8_encoding&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;xml_parser&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;anomaly_threshold&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="p">},</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;ruleset_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OWASP-CRS-2.2.9&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;ruleset_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2017-08-01&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;policies&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_20_protocol_violations.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_21_protocol_anomalies.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_22_custom_ec_rules.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_23_request_limits.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_30_http_policy.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_35_bad_robots.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_40_generic_attacks.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_41_sql_injection_attacks.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_41_xss_attacks.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_42_tight_security.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_45_trojans.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_47_common_exceptions.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_49_inbound_blocking.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_50_outbound.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_59_outbound_blocking.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_60_correlation.conf&quot;</span><span class="w"></span>
-<span class="w">  </span><span class="p">]</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+</div>
+<div class="section" id="example-profile-json">
+<h2>Example Profile json<a class="headerlink" href="#example-profile-json" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Koala Blocking Profile&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;WAF Test 13&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;created_date&quot;</span><span class="p">:</span> <span class="s2">&quot;12/02/2018 1:39:46 PM&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;access_settings&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;ip&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;blacklist&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;2607:f8b0:4007:801::200e&quot;</span>
+      <span class="p">],</span>
+      <span class="nt">&quot;whitelist&quot;</span><span class="p">:</span> <span class="p">[]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;country&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;blacklist&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;AU&quot;</span>
+      <span class="p">],</span>
+      <span class="nt">&quot;whitelist&quot;</span><span class="p">:</span> <span class="p">[]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;blacklist&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;/login/login.jsp&quot;</span>
+        <span class="p">],</span>
+      <span class="nt">&quot;whitelist&quot;</span><span class="p">:</span> <span class="p">[]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;user-agent&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;blacklist&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;cerl/7.58.0&quot;</span>
+      <span class="p">],</span>
+      <span class="nt">&quot;whitelist&quot;</span><span class="p">:</span> <span class="p">[]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;referer&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;blacklist&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;http://www.hotzone.com/&quot;</span>
+      <span class="p">],</span>
+      <span class="nt">&quot;whitelist&quot;</span><span class="p">:</span> <span class="p">[]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;ignore_header&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;(?i)(benign-header)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;^D&quot;</span>
+    <span class="p">],</span>
+    <span class="nt">&quot;ignore_cookie&quot;</span><span class="p">:</span> <span class="p">[</span>
+      <span class="s2">&quot;(?i)(crazy_cookie)&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;^[0-9_].*$&quot;</span>
+    <span class="p">],</span>
+    <span class="nt">&quot;ignore_query_args&quot;</span><span class="p">:</span> <span class="p">[</span>
+      <span class="s2">&quot;ignore&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;this&quot;</span>
+    <span class="p">]</span>
+  <span class="p">},</span>
+  <span class="nt">&quot;general_settings&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;allowed_http_methods&quot;</span><span class="p">:</span> <span class="p">[</span>
+      <span class="s2">&quot;GET&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;POST&quot;</span>
+    <span class="p">],</span>
+    <span class="nt">&quot;disallowed_extensions&quot;</span><span class="p">:</span> <span class="p">[</span>
+      <span class="s2">&quot;.bat&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;.db&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;.dll&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;.sql&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;.sys&quot;</span>
+    <span class="p">],</span>
+    <span class="nt">&quot;allowed_request_content_types&quot;</span><span class="p">:</span> <span class="p">[</span>
+      <span class="s2">&quot;application/x-www-form-urlencoded&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;multipart/form-data&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;text/xml&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;application/xml&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;application/json&quot;</span>
+    <span class="p">],</span>
+    <span class="nt">&quot;disallowed_headers&quot;</span><span class="p">:</span> <span class="p">[</span>
+      <span class="s2">&quot;Bad-Header&quot;</span>
+    <span class="p">],</span>
+    <span class="nt">&quot;arg_name_length&quot;</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span>
+    <span class="nt">&quot;arg_length&quot;</span><span class="p">:</span> <span class="mi">8000</span><span class="p">,</span>
+    <span class="nt">&quot;max_num_args&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="nt">&quot;total_arg_length&quot;</span><span class="p">:</span> <span class="mi">64000</span><span class="p">,</span>
+    <span class="nt">&quot;combined_file_sizes&quot;</span><span class="p">:</span> <span class="mi">6291456</span><span class="p">,</span>
+    <span class="nt">&quot;max_file_size&quot;</span><span class="p">:</span> <span class="mi">6291456</span><span class="p">,</span>
+    <span class="nt">&quot;validate_utf8_encoding&quot;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+    <span class="nt">&quot;xml_parser&quot;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+    <span class="nt">&quot;anomaly_threshold&quot;</span> <span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="p">},</span>
+  <span class="nt">&quot;ruleset_id&quot;</span><span class="p">:</span> <span class="s2">&quot;OWASP-CRS-2.2.9&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;ruleset_version&quot;</span><span class="p">:</span> <span class="s2">&quot;2017-08-01&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;policies&quot;</span> <span class="p">:</span> <span class="p">[</span>
+    <span class="s2">&quot;modsecurity_crs_20_protocol_violations.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_21_protocol_anomalies.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_22_custom_ec_rules.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_23_request_limits.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_30_http_policy.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_35_bad_robots.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_40_generic_attacks.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_41_sql_injection_attacks.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_41_xss_attacks.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_42_tight_security.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_45_trojans.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_47_common_exceptions.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_49_inbound_blocking.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_50_outbound.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_59_outbound_blocking.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_60_correlation.conf&quot;</span>
+  <span class="p">]</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-</section>
-<section id="access-control-lists">
-<span id="profiles-acls"></span><h2>Access Control Lists<a class="headerlink" href="#access-control-lists" title="Permalink to this heading">¶</a></h2>
+</div>
+<div class="section" id="access-control-lists">
+<span id="profiles-acls"></span><h2>Access Control Lists<a class="headerlink" href="#access-control-lists" title="Permalink to this headline">¶</a></h2>
 <p>Access control lists (ACL’s) for various facets of an http client request are listed below.  ACL’s are processed first before ruleset processing; whitelists followed by blacklists.  Whitelists are explicit call out to features if found in the client http request, all waflz processing is bypassed.  Blacklists are simple binary conditions, whereby if a feature matches, waflz creates and alert and ceases further processing.  It’s a current legacy quirk that some fields that are <em>not</em> access control lists are included in the <code class="docutils literal notranslate"><span class="pre">&quot;access_settings&quot;</span></code> group and as well that some configuration that is an access control is in the <code class="docutils literal notranslate"><span class="pre">&quot;general_settings&quot;</span></code> group.</p>
 <p>The following features are included in ACL’s:
 * <code class="docutils literal notranslate"><span class="pre">&quot;ip&quot;</span></code>: IPv4/IPv6 address (w/ CIDR support)
 * <code class="docutils literal notranslate"><span class="pre">&quot;country&quot;</span></code>: 2 letter country code
 * <code class="docutils literal notranslate"><span class="pre">&quot;user_agent&quot;</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;User-Agent&quot;</span></code> header from client http request (w/ regex support)
 * <code class="docutils literal notranslate"><span class="pre">&quot;referer&quot;</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;Referer&quot;</span></code> header from client http request (w/ regex support)</p>
-<section id="block-example">
-<h3>Block Example<a class="headerlink" href="#block-example" title="Permalink to this heading">¶</a></h3>
+<div class="section" id="block-example">
+<h3>Block Example<a class="headerlink" href="#block-example" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li><p>IP addresses with “2001:db8::/32” ipv6 prefix or “192.0.2.0/24” ipv4 prefix</p></li>
 <li><p>IP addresses from Virgin Islands or Sweden</p></li>
 <li><p>curl or wget clients…</p></li>
 <li><p>traffic coming from google or yahoo (via referer)</p></li>
 </ul>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="nt">&quot;access_settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;ip&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;blacklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;2001:db8::/32&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;192.0.2.0/24&quot;</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;whitelist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"></span>
-<span class="w">  </span><span class="p">},</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;country&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;blacklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;VI&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;SE&quot;</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;whitelist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"></span>
-<span class="w">  </span><span class="p">},</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;user_agent&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;blacklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;curl*&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;wget*&quot;</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;whitelist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"></span>
-<span class="w">  </span><span class="p">},</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;referer&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;blacklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;http://google.com&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;http://yahoo.com&quot;</span><span class="p">],</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;whitelist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"></span>
-<span class="w">  </span><span class="p">},</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="nt">&quot;access_settings&quot;</span><span class="p">:</span> <span class="p">{</span>
+  <span class="nt">&quot;ip&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;blacklist&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2001:db8::/32&quot;</span><span class="p">,</span> <span class="s2">&quot;192.0.2.0/24&quot;</span><span class="p">],</span>
+    <span class="nt">&quot;whitelist&quot;</span><span class="p">:</span> <span class="p">[]</span>
+  <span class="p">},</span>
+  <span class="nt">&quot;country&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;blacklist&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;VI&quot;</span><span class="p">,</span> <span class="s2">&quot;SE&quot;</span><span class="p">],</span>
+    <span class="nt">&quot;whitelist&quot;</span><span class="p">:</span> <span class="p">[]</span>
+  <span class="p">},</span>
+  <span class="nt">&quot;user_agent&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;blacklist&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;curl*&quot;</span><span class="p">,</span> <span class="s2">&quot;wget*&quot;</span><span class="p">],</span>
+    <span class="nt">&quot;whitelist&quot;</span><span class="p">:</span> <span class="p">[]</span>
+  <span class="p">},</span>
+  <span class="nt">&quot;referer&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;blacklist&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;http://google.com&quot;</span><span class="p">,</span> <span class="s2">&quot;http://yahoo.com&quot;</span><span class="p">],</span>
+    <span class="nt">&quot;whitelist&quot;</span><span class="p">:</span> <span class="p">[]</span>
+  <span class="p">},</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-</section>
-</section>
-<section id="ignore-fields">
-<h2>Ignore Fields<a class="headerlink" href="#ignore-fields" title="Permalink to this heading">¶</a></h2>
+</div>
+</div>
+<div class="section" id="ignore-fields">
+<h2>Ignore Fields<a class="headerlink" href="#ignore-fields" title="Permalink to this headline">¶</a></h2>
 <p>The following features are included in ACL’s:
 * <code class="docutils literal notranslate"><span class="pre">&quot;ignore_header&quot;</span></code>: Headers from the client http request (w/ regex support)
 * <code class="docutils literal notranslate"><span class="pre">&quot;ignore_cookie&quot;</span></code>: Field names from the parsed <code class="docutils literal notranslate"><span class="pre">&quot;Cookie&quot;</span></code> header in the client http request (w/ regex support)
 * <code class="docutils literal notranslate"><span class="pre">&quot;ignore_query_args&quot;</span></code>: Fields names from the parsed query string in the url from the client http request line (w/ regex support)</p>
-<section id="ignore-example">
-<h3>Ignore Example<a class="headerlink" href="#ignore-example" title="Permalink to this heading">¶</a></h3>
+<div class="section" id="ignore-example">
+<h3>Ignore Example<a class="headerlink" href="#ignore-example" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">Benign-Header</span></code> (case insensitive), and any headers starting with numbers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">crazy_cookie</span></code> cookies, and cookies starting with characters <code class="docutils literal notranslate"><span class="pre">a</span></code>,``b``, or <code class="docutils literal notranslate"><span class="pre">c</span></code>.</p></li>
 <li><p>query string arguments named <code class="docutils literal notranslate"><span class="pre">ignore</span></code> or <code class="docutils literal notranslate"><span class="pre">this</span></code>.</p></li>
 </ul>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;ignore_header&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;(?i)(benign-header)&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;^\d&quot;</span><span class="w"></span>
-<span class="w">  </span><span class="p">],</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;ignore_cookie&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;(?i)(crazy_cookie)&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;^[a-c]&quot;</span><span class="w"></span>
-<span class="w">  </span><span class="p">],</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;ignore_query_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;this&quot;</span><span class="w"></span>
-<span class="w">  </span><span class="p">]</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;ignore_header&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="s2">&quot;(?i)(benign-header)&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;^\d&quot;</span>
+  <span class="p">],</span>
+  <span class="nt">&quot;ignore_cookie&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="s2">&quot;(?i)(crazy_cookie)&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;^[a-c]&quot;</span>
+  <span class="p">],</span>
+  <span class="nt">&quot;ignore_query_args&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="s2">&quot;ignore&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;this&quot;</span>
+  <span class="p">]</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-</section>
-</section>
-<section id="general-settings">
-<h2>General Settings<a class="headerlink" href="#general-settings" title="Permalink to this heading">¶</a></h2>
-<section id="allowed-settings">
-<h3>Allowed Settings<a class="headerlink" href="#allowed-settings" title="Permalink to this heading">¶</a></h3>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;allowed_http_methods&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;GET&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;POST&quot;</span><span class="w"></span>
-<span class="w">  </span><span class="p">],</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;disallowed_extensions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;.bat&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;.db&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;.dll&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;.sql&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;.sys&quot;</span><span class="w"></span>
-<span class="w">  </span><span class="p">],</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;allowed_request_content_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;application/x-www-form-urlencoded&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;multipart/form-data&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;text/xml&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;application/xml&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;application/json&quot;</span><span class="w"></span>
-<span class="w">  </span><span class="p">],</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;disallowed_headers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;Bad-Header&quot;</span><span class="w"></span>
-<span class="w">  </span><span class="p">]</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+</div>
+</div>
+<div class="section" id="general-settings">
+<h2>General Settings<a class="headerlink" href="#general-settings" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="allowed-settings">
+<h3>Allowed Settings<a class="headerlink" href="#allowed-settings" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;allowed_http_methods&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="s2">&quot;GET&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;POST&quot;</span>
+  <span class="p">],</span>
+  <span class="nt">&quot;disallowed_extensions&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="s2">&quot;.bat&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;.db&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;.dll&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;.sql&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;.sys&quot;</span>
+  <span class="p">],</span>
+  <span class="nt">&quot;allowed_request_content_types&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="s2">&quot;application/x-www-form-urlencoded&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;multipart/form-data&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;text/xml&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;application/xml&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;application/json&quot;</span>
+  <span class="p">],</span>
+  <span class="nt">&quot;disallowed_headers&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="s2">&quot;Bad-Header&quot;</span>
+  <span class="p">]</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-</section>
-<section id="anomaly-settings">
-<h3>Anomaly Settings<a class="headerlink" href="#anomaly-settings" title="Permalink to this heading">¶</a></h3>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;anomaly_threshold&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"></span>
+</div>
+<div class="section" id="anomaly-settings">
+<h3>Anomaly Settings<a class="headerlink" href="#anomaly-settings" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span>&quot;anomaly_threshold&quot; : 1
 </pre></div>
 </div>
-</section>
-</section>
-<section id="waf-ruleset">
-<h2>WAF Ruleset<a class="headerlink" href="#waf-ruleset" title="Permalink to this heading">¶</a></h2>
+</div>
+</div>
+<div class="section" id="waf-ruleset">
+<h2>WAF Ruleset<a class="headerlink" href="#waf-ruleset" title="Permalink to this headline">¶</a></h2>
 <p>Specify the WAF ruleset and “version” to use.</p>
-<section id="ruleset-configuration">
-<h3>Ruleset Configuration<a class="headerlink" href="#ruleset-configuration" title="Permalink to this heading">¶</a></h3>
+<div class="section" id="ruleset-configuration">
+<h3>Ruleset Configuration<a class="headerlink" href="#ruleset-configuration" title="Permalink to this headline">¶</a></h3>
 <p>It’s been useful to have a top level directory of rulesets that were versioned (usually by date), so
 <strong>waflz</strong> expects the WAF ruleset directory containing ModSecurity rule files organized as: <code class="docutils literal notranslate"><span class="pre">&lt;&quot;ruleset_id&quot;&gt;/version/&lt;&quot;ruleset_version&quot;&gt;/...</span></code></p>
 <p>So in the example below if</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;ruleset_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OWASP-CRS-2.2.9&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;ruleset_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2017-08-01&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;ruleset_id&quot;</span><span class="p">:</span> <span class="s2">&quot;OWASP-CRS-2.2.9&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;ruleset_version&quot;</span><span class="p">:</span> <span class="s2">&quot;2017-08-01&quot;</span><span class="p">,</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>The contents of ruleset directory would look like:</p>
@@ -276,33 +273,33 @@
       ...
 </pre></div>
 </div>
-</section>
-<section id="policy-configuration">
-<h3>Policy Configuration<a class="headerlink" href="#policy-configuration" title="Permalink to this heading">¶</a></h3>
+</div>
+<div class="section" id="policy-configuration">
+<h3>Policy Configuration<a class="headerlink" href="#policy-configuration" title="Permalink to this headline">¶</a></h3>
 <p>Within a given ruleset/version directory, the policies to be included are specified in the <code class="docutils literal notranslate"><span class="pre">&quot;policies&quot;</span></code> array.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">  </span><span class="nt">&quot;policies&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_20_protocol_violations.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_21_protocol_anomalies.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_22_custom_ec_rules.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_23_request_limits.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_30_http_policy.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_35_bad_robots.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_40_generic_attacks.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_41_sql_injection_attacks.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_41_xss_attacks.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_42_tight_security.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_45_trojans.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_47_common_exceptions.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_49_inbound_blocking.conf&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">    </span><span class="s2">&quot;modsecurity_crs_60_correlation.conf&quot;</span><span class="w"></span>
-<span class="w">  </span><span class="p">]</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;policies&quot;</span> <span class="p">:</span> <span class="p">[</span>
+    <span class="s2">&quot;modsecurity_crs_20_protocol_violations.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_21_protocol_anomalies.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_22_custom_ec_rules.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_23_request_limits.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_30_http_policy.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_35_bad_robots.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_40_generic_attacks.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_41_sql_injection_attacks.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_41_xss_attacks.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_42_tight_security.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_45_trojans.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_47_common_exceptions.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_49_inbound_blocking.conf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;modsecurity_crs_60_correlation.conf&quot;</span>
+  <span class="p">]</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-</section>
-</section>
-</section>
+</div>
+</div>
+</div>
 
 
           </div>
@@ -360,7 +357,7 @@
     </form>
     </div>
 </div>
-<script>document.getElementById('searchbox').style.display = "block"</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -374,10 +371,10 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2022, Reed Morrison, Devender Singh.
+      &copy;2020, Reed Morrison, Devender Singh.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.2.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.4.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

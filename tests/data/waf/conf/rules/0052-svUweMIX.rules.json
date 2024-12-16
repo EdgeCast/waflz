@@ -75,6 +75,63 @@
                }
             ]
          }
+      },
+      {
+        "sec_rule": {
+          "action": {
+              "msg": "Bot Score > 50",
+              "t": [
+                  "NONE"
+              ],
+              "id": "66100095",
+              "phase": 1,
+              "action_type": "BLOCK"
+          },
+          "id": "xsQDqFkv",
+          "name": "new bot rules 01",
+          "operator": {
+              "is_negated": false,
+              "is_regex": false,
+              "type": "GE",
+              "value": "50"
+          },
+          "variable": [
+              {
+                  "is_count": false,
+                  "match": [],
+                  "type": "BOT_SCORE"
+              }
+          ],
+          "chained_rule": [
+            {
+              "variable": [
+                {
+                  "type": "REQUEST_HEADERS",
+                  "match": [
+                    {
+                      "value": "Pragma",
+                      "is_negated": false,
+                      "is_regex": false
+                    }
+                  ],
+                  "is_count": false
+                }
+              ],
+              "operator": {
+                "type": "STRMATCH",
+                "value": "no-cache",
+                "is_regex": false,
+                "is_negated": false
+              },
+              "action": {
+                "msg": "chain-rule 1 match",
+                "t":[
+                  "LOWERCASE"
+                ]
+              }
+            }
+          ]
+        }
       }
   ]
 }

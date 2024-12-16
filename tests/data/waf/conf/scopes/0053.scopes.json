@@ -105,6 +105,80 @@
           "response_body_base64": "YXNuIGRkb3MgZW5mb3JjZW1lbnQK"
        }
     }]
+  },
+  {
+    "id": "query_and_cookie",
+    "name": "limit 5th scope",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "limitzquerycookie.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "limits":[{
+       "id":"query_cookie_val",
+       "action":{
+          "id":"mFwhkjoX",
+          "name":"ddos-action",
+          "status": 403,
+          "duration_sec": 2,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64": "YXNuIGRkb3MgZW5mb3JjZW1lbnQK"
+       }
+    }]
+  },
+  {
+    "id": "ja3_test",
+    "name": "limit 6th scope",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "limitzja3.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "limits":[{
+       "id":"ja3_val",
+       "action":{
+          "id":"mFwhkjoX",
+          "name":"ddos-action",
+          "status": 403,
+          "duration_sec": 2,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64": "YXNuIGRkb3MgZW5mb3JjZW1lbnQK"
+       }
+    }]
+  },
+  {
+    "id": "neg_cg_test",
+    "name": "limit 7th scope",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "limitzcg.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "limits":[{
+       "id":"negated_cg",
+       "action":{
+          "id":"mFwhkjoX",
+          "name":"ddos-action",
+          "status": 403,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64": "YXNuIGRkb3MgZW5mb3JjZW1lbnQK"
+       }
+    }]
   }
 ]
 }

@@ -1,0 +1,32 @@
+{
+    "id": "DYhGetLq",
+    "customer_id":"0052",
+    "name": "my cool bot manager",
+    "last_modified_date": "2019-04-18T19:48:25.142172Z",
+    "actions":{
+        "CUSTOM_RESPONSE" : {
+            "status" : 403,
+            "response_body_base64":"cmVjYXB0Y2hhIGZhaWxlZC4gcmVxdWVzdCBub3QgYWxsb3dlZAo="
+        },
+        "RECAPTCHA": {
+            "valid_for_sec" : 3,
+            "status": 401,
+            "failed_action_type": "CUSTOM_RESPONSE"
+        },
+        "BLOCK_REQUEST": {},
+        "DROP_REQUEST": {}
+    },
+    "inspect_known_bots" : true,
+    "known_bots" : [
+      {
+         "bot_token" : "google",
+         "action_type": "RECAPTCHA"
+      },
+      {
+         "bot_token": "other",
+         "action_type": "RECAPTCHA"
+      }
+    ],
+    "spoof_bot_action_type": "RECAPTCHA",
+    "bots_prod_id":"89W3CPRu"
+}

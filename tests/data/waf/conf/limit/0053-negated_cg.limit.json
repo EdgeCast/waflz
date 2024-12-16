@@ -1,0 +1,87 @@
+{
+    "condition_groups": [
+        {
+            "conditions": [
+                {
+                    "op": {
+                        "is_negated": true,
+                        "type": "RX",
+                        "value": "Screaming Frog SEO Spider.*"
+                    },
+                    "target": {
+                        "type": "REQUEST_HEADERS",
+                        "value": "User-Agent"
+                    }
+                }
+            ],
+            "id": "CDOFHBtE",
+            "name": "Condition Group 2"
+        },
+        {
+            "conditions": [
+                {
+                    "op": {
+                        "is_negated": true,
+                        "type": "EM",
+                        "values": [
+                            "172.94.68.215",
+                            "5.15.22.155",
+                            "193.186.4.206",
+                            "99.70.248.239",
+                            "2600:1700:fce0:9ef0:c880:46a9:6477:2aeb",
+                            "67.253.74.130",
+                            "104.152.82.37",
+                            "2603:7080:4701:cabf:cc4:5526:f694:4677",
+                            "2606:cb80:11:295:5140:fcc5:1c36:7846",
+                            "132.147.159.118"
+                        ]
+                    },
+                    "target": {
+                        "type": "REMOTE_ADDR"
+                    }
+                }
+            ],
+            "id": "a2f1DwlG",
+            "name": "Condition Group 1"
+        },
+        {
+            "conditions": [
+                {
+                    "op": {
+                        "is_case_insensitive": true,
+                        "is_negated": true,
+                        "type": "EM",
+                        "values": [
+                            "jpg",
+                            "png",
+                            "jpeg",
+                            "svg",
+                            "webp",
+                            "css",
+                            "woff2",
+                            "ttf",
+                            "js",
+                            "webm",
+                            "mp4",
+                            "pdf"
+                        ]
+                    },
+                    "target": {
+                        "type": "FILE_EXT"
+                    }
+                }
+            ],
+            "id": "rpxTm32R",
+            "name": "Condition Group 3"
+        }
+    ],
+    "id": "negated_cg",
+    "customer_id":"0053",
+    "name": "negated condition group",
+    "disabled": false,
+    "duration_sec": 5,
+    "keys": [
+        "IP"
+    ],
+    "num": 3
+}

@@ -1,0 +1,78 @@
+{
+    "id": "cats",
+    "customer_id":"0052",
+    "name": "my cool bot manager with categories",
+    "last_modified_date": "2019-04-18T19:48:25.142172Z",
+    "inspect_known_bots" : true,
+    "actions": {
+      "BLOCK_REQUEST": {},
+      "DROP_REQUEST": {},
+      "BROWSER_CHALLENGE": {
+        "valid_for_sec" : 3,
+        "status":401
+      },
+      "CUSTOM_RESPONSE": {
+        "response_body_base64": "VGhpcyBpcyBwcm9maWxlIGN1c3RvbSByZXNwb25zZQo=",
+        "response_headers": {
+          "x-ec-rules": "rejected"
+        },
+        "status": 403,
+        "id": "zeAXrllT",
+        "name": "ACTION",
+        "enf_type": "CUSTOM_RESPONSE"
+      },
+      "ALERT": {},
+      "IGNORE": {
+        "id": "ignore!"
+      }
+    },
+    "spoof_bot_action_type": "BROWSER_CHALLENGE",
+    "categories": [
+      {
+        "category": "Search Engine/SEO bots",
+        "action_type": "ALERT",
+        "spoof_action_type": "CUSTOM_RESPONSE",
+        "strict_match": true,
+        "companies": [
+          {
+            "bot_token" : "google"
+          },
+          {
+            "bot_token" : "msn",
+            "action_type" : "BROWSER_CHALLENGE",
+            "spoof_action_type": "ALERT"
+          },
+          {
+            "bot_token": "other",
+            "action_type" : "BLOCK_REQUEST"
+          }
+        ]
+      },
+      {
+        "category": "Social Media/Messaging Bots",
+        "action_type": "CUSTOM_RESPONSE",
+        "spoof_action_type": "IGNORE",
+        "companies": [
+          {
+            "bot_token" : "facebook",
+            "action_type" : "ALERT"
+          },
+          {
+            "bot_token" : "twitter",
+            "action_type" : "BLOCK_REQUEST"
+          }
+        ]
+      },
+      {
+        "category": "Miscellaneous",
+        "action_type": "ALERT",
+        "spoof_action_type":"IGNORE",
+        "companies": [
+          {
+            "bot_token": "yandex"
+          }
+        ]
+      }
+    ],
+    "bots_prod_id":"w12347"
+}

@@ -1,0 +1,59 @@
+[
+    {
+        "ip": "123.45.678.91",
+        "tags": "[\"UniqueIpActivity\",\"Request Volume low\"]",
+        "customer_id": "0050",
+        "user_agent": "custom_ip_bot_score",
+        "score": "81"
+    },
+    {
+        "ip": "123.45.678.90",
+        "tags": "[\"UniqueIpActivity\",\"Request Volume low\"]",
+        "score": "82"
+    },
+    {
+        "ip": "123.45.0.90",
+        "user_agent": "custom_ip_bot_score",
+        "tags": "",
+        "customer_id": "0051",
+        "score": "83"
+    },
+    {
+        "ip": "123.45.0.90",
+        "tags": "",
+        "customer_id": "0051",
+        "score": "99"
+    },
+    {
+        "ja4": "t12i7512h2_479067518aa3_1188e8eced89",
+        "tags": "[\"UniqueIpActivity\"]",
+        "customer_id": "0051",
+        "user_agent": "custom_bot_score",
+        "score": "75"
+    },
+    {
+        "ja4": "t12i7512h2_479067518aa3_1188e8eced89",
+        "tags": "[\"UniqueIpActivity\"]",
+        "user_agent": "other_user_agent",
+        "score": "85"
+    },
+    {
+        "ja4": "full_ja3_level",
+        "tags": "[\"UniqueIpActivity\"]",
+        "score": "99"
+    },
+    {
+        "ja4": "__na__",
+        "tags": "[\"Url len inconsistency\"]",
+        "score": "100"
+    },
+    {
+        "asn": "60339",
+        "user_agent": "custom_bot_score",
+        "score": "65"
+    },
+    {
+        "asn": "60339",
+        "score": "75"
+    }
+]

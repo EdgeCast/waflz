@@ -54,6 +54,11 @@ message variable_t {
                 DURATION = 204;
                 SD_ISO=205;
                 JA3=206;
+                BOT_SCORE=207;
+                JA4 = 208;
+                JA4_A = 209;
+                JA4_B = 210;
+                JA4_C = 211;
                 UNIQUE_ID = 300;
                 // -----------------------------------------
                 // extensions...
@@ -85,6 +90,7 @@ message update_target_t {
         optional string id = 1;
         repeated variable_t variable = 2;
         optional string replace = 3;
+        repeated string id_list = 4;
 }
 //: ----------------------------------------------------------------------------
 //: ModSecurity SecAction Object
@@ -175,6 +181,7 @@ message sec_action_t {
         repeated string tag = 300;
         repeated setvar_t setvar = 400;
         optional string logdata = 401;
+        optional enforcement.type_t bot_action = 402;
         // -------------------------------------------------
         // Tranformations (t)
         // -------------------------------------------------
@@ -326,6 +333,7 @@ message sec_config_t {
         optional string customer_id = 4;
         optional string last_modified_date = 5;
         optional string last_modified_by = 6;
+        optional bool team_config = 7;
         // -------------------------------------------------
         // id
         // -------------------------------------------------

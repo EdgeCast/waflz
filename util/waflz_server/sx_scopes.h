@@ -44,7 +44,11 @@ typedef enum _entity_t {
         ENTITY_TYPE_ACL,
         ENTITY_TYPE_PROFILE,
         ENTITY_TYPE_RULES,
+        ENTITY_TYPE_BOTS,
         ENTITY_TYPE_LIMIT,
+        ENTITY_TYPE_BOT_MANAGER,
+        ENTITY_TYPE_API_GW,
+        ENTITY_TYPE_API_SCHEMA
 } entity_t;
 //! ----------------------------------------------------------------------------
 //! type
@@ -227,6 +231,19 @@ public:
                         break;
                 }
                 // -----------------------------------------
+                // bots
+                // -----------------------------------------
+                case ENTITY_TYPE_BOTS:
+                {
+                        l_s = l_sc->m_scopes_configs->load_bots(l_sc->m_buf, l_sc->m_buf_len);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                TRC_ERROR("performing scopes->load\n");
+                                goto done;
+                        }
+                        break;
+                }
+                // -----------------------------------------
                 // limit
                 // -----------------------------------------
                 case ENTITY_TYPE_LIMIT:
@@ -234,6 +251,46 @@ public:
                         l_s = l_sc->m_scopes_configs->load_limit(l_sc->m_buf, l_sc->m_buf_len);
                         if(l_s != WAFLZ_STATUS_OK)
                         {
+                                TRC_ERROR("performing scopes->load\n");
+                                goto done;
+                        }
+                        break;
+                }
+                // -----------------------------------------
+                // bot_manager
+                // -----------------------------------------
+                case ENTITY_TYPE_BOT_MANAGER:
+                {
+                        l_s = l_sc->m_scopes_configs->load_bot_manager(l_sc->m_buf, l_sc->m_buf_len);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                TRC_ERROR("performing scopes->load\n");
+                                goto done;
+                        }
+                        break;
+                }
+                // -----------------------------------------
+                // api gateway
+                // -----------------------------------------
+                case ENTITY_TYPE_API_GW:
+                {
+                        l_s = l_sc->m_scopes_configs->load_api_gw(l_sc->m_buf, l_sc->m_buf_len);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                TRC_ERROR("performing scopes->load\n");
+                                goto done;
+                        }
+                        break;
+                }
+                // -----------------------------------------
+                // api schema
+                // -----------------------------------------
+                case ENTITY_TYPE_API_SCHEMA:
+                {
+                        l_s = l_sc->m_scopes_configs->load_schema(l_sc->m_buf, l_sc->m_buf_len);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                printf("load schema failed\n");
                                 TRC_ERROR("performing scopes->load\n");
                                 goto done;
                         }
@@ -330,6 +387,20 @@ done:
                         break;
                 }
                 // -----------------------------------------
+                // bots
+                // -----------------------------------------
+                case ENTITY_TYPE_BOTS:
+                {
+                        l_s = a_scopes_configs->load_bots(a_buf, a_buf_len);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                TRC_ERROR("performing scopes->load\n");
+                                l_ret = STATUS_ERROR;
+                                goto done;
+                        }
+                        break;
+                }
+                // -----------------------------------------
                 // limit
                 // -----------------------------------------
                 case ENTITY_TYPE_LIMIT:
@@ -339,6 +410,46 @@ done:
                         {
                                 TRC_ERROR("performing scopes->load\n");
                                 l_ret = STATUS_ERROR;
+                                goto done;
+                        }
+                        break;
+                }
+                // -----------------------------------------
+                // bot_manager
+                // -----------------------------------------
+                case ENTITY_TYPE_BOT_MANAGER:
+                {
+                        l_s = a_scopes_configs->load_bot_manager(a_buf, a_buf_len);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                TRC_ERROR("performing scopes->load\n");
+                                l_ret = STATUS_ERROR;
+                                goto done;
+                        }
+                        break;
+                }
+                // -----------------------------------------
+                // api gateway
+                // -----------------------------------------
+                case ENTITY_TYPE_API_GW:
+                {
+                        l_s = a_scopes_configs->load_api_gw(a_buf, a_buf_len);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                TRC_ERROR("performing scopes->load\n");
+                                goto done;
+                        }
+                        break;
+                }
+                // -----------------------------------------
+                // api schema
+                // -----------------------------------------
+                case ENTITY_TYPE_API_SCHEMA:
+                {
+                        l_s = a_scopes_configs->load_schema(a_buf, a_buf_len);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                TRC_ERROR("performing scopes->load\n");
                                 goto done;
                         }
                         break;
@@ -376,14 +487,25 @@ public:
         // public methods
         // -------------------------------------------------
         sx_scopes(ns_waflz::engine& a_engine,
-                  ns_waflz::kv_db &a_db);
+                  ns_waflz::kv_db& a_db,
+                  ns_waflz::kv_db& a_bot_db,
+                  ns_waflz::challenge& a_challenge,
+                  ns_waflz::captcha& a_captcha);
         ~sx_scopes(void);
         int32_t init(void);
+        ns_is2::h_resp_t get_id_for_hmsg(ns_is2::rqst& a_msg,
+                                         std::string& a_team_id,
+                                         uint64_t& a_id);
         ns_is2::h_resp_t handle_rqst(waflz_pb::enforcement **ao_enf,
                                      ns_waflz::rqst_ctx **ao_ctx,
                                      ns_is2::session &a_session,
                                      ns_is2::rqst &a_rqst,
                                      const ns_is2::url_pmap_t &a_url_pmap);
+        ns_is2::h_resp_t handle_resp(waflz_pb::enforcement **ao_enf,
+                                     ns_waflz::resp_ctx **ao_ctx,
+                                     ns_waflz::header_map_t** ao_headers,
+                                     ns_is2::subr &a_subr,
+                                     ns_waflz_server::waf_resp_pkg &a_resp_pkg);
         // -------------------------------------------------
         // public members
         // -------------------------------------------------
@@ -394,6 +516,9 @@ public:
         bool m_is_rand;
         ns_waflz::engine& m_engine;
         ns_waflz::kv_db& m_db;
+        ns_waflz::kv_db& m_bot_db;
+        ns_waflz::challenge& m_challenge;
+        ns_waflz::captcha& m_captcha;
         std::string m_conf_dir;
         ns_waflz::scopes_configs* m_scopes_configs;
         // -------------------------------------------------
@@ -402,8 +527,12 @@ public:
         update_entity_h<ENTITY_TYPE_SCOPES>* m_update_scopes_h;
         update_entity_h<ENTITY_TYPE_ACL>* m_update_acl_h;
         update_entity_h<ENTITY_TYPE_RULES>* m_update_rules_h;
+        update_entity_h<ENTITY_TYPE_BOTS>* m_update_bots_h;
         update_entity_h<ENTITY_TYPE_PROFILE>* m_update_profile_h;
         update_entity_h<ENTITY_TYPE_LIMIT>* m_update_limit_h;
+        update_entity_h<ENTITY_TYPE_BOT_MANAGER>* m_update_bot_manager_h;
+        update_entity_h<ENTITY_TYPE_API_GW>* m_update_api_gw_h;
+        update_entity_h<ENTITY_TYPE_API_SCHEMA>* m_update_api_schema_h;
 };
 }
 #endif

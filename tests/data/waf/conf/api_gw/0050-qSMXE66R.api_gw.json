@@ -1,0 +1,44 @@
+{
+    "id": "qSMXE66R",
+    "name": "my cool api gateway",
+    "customer_id": "0050",
+    "last_modified_date": "2019-04-18T19:48:25.142172Z",
+    "rules": [
+        {
+            "id": "banana",
+            "methods": [
+                "GET"
+            ],
+            "path": {
+                "type": "GLOB",
+                "value": "*"
+            },
+            "schema_id": "A7QPbm0Z"
+        },
+        {
+            "id": "phone",
+            "methods": [
+                "PUT"
+            ],
+            "path": {
+                "is_negated": false,
+                "type": "EM",
+                "value": "/test.html"
+            },
+            "schema_id": "A7QPbm0Z"
+        },
+        {
+            "id": "dundun",
+            "response": 200,
+            "methods": [
+                "POST"
+            ],
+            "path": {
+                "is_negated": false,
+                "type": "EM",
+                "value": "/test.html"
+            },
+            "schema_id": "A7QPbm0Z"
+        }
+    ]
+}

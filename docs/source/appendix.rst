@@ -55,7 +55,7 @@ waflz internal access control lists' (ACLs') use 80XXX rule prefixes for alerts 
 IP Trie Performance
 -------------------
 
-Comparing memory and query performance between the waflz `IP Tree <https://github.com/edgio/waflz/blob/master/src/op/nms.h>`_ and ModSecurity `msc_tree <https://github.com/SpiderLabs/ModSecurity/blob/v2/master/apache2/msc_tree.h>`_ implementations.
+Comparing memory and query performance between the waflz `IP Tree <https://github.com/edgioinc/waflz/blob/master/include/waflz/nms.h>`_ and ModSecurity `msc_tree <https://github.com/SpiderLabs/ModSecurity/blob/v2/master/apache2/msc_tree.h>`_ implementations.
 
 .. figure:: _images/mem_usage_ipv4.svg
     :alt: Memory Usage IPv4

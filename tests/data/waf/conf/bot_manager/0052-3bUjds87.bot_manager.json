@@ -1,0 +1,90 @@
+{
+    "id": "3bUjds87",
+    "customer_id":"0052",
+    "name": "my cool bot manager",
+    "last_modified_date": "2019-04-18T19:48:25.142172Z",
+    "inspect_known_bots" : true,
+    "exception_url": [],
+    "exception_user_agent": [
+        "abc/monkey/banana?abc=howmanybananas",
+        "xyz/monkey/banana?abc=howmanybananas"
+    ],
+    "exception_cookie": ["yummy-cookie",
+      "yucky-cookie"
+    ],
+    "exception_ja3" :["656b9a2f4de6ed4909e157482860ab3d"],
+    "exception_ja4" :["this_should_be_ignored"],
+    "actions": {
+      "BLOCK_REQUEST": {},
+      "DROP_REQUEST": {},
+      "BROWSER_CHALLENGE": {
+        "valid_for_sec" : 3,
+        "status":401
+      },
+      "CUSTOM_RESPONSE": {
+        "response_body_base64": "VGhpcyBpcyBwcm9maWxlIGN1c3RvbSByZXNwb25zZQo=",
+        "response_headers": {
+          "x-ec-rules": "rejected"
+        },
+        "status": 403,
+        "id": "zeAXrllT",
+        "name": "ACTION",
+        "enf_type": "CUSTOM_RESPONSE"
+      },
+      "ALERT": {},
+      "REDIRECT_302": {
+        "id": "hYhxOCeH",
+        "name": "COOL ACTION NAME",
+        "url": "https://www.google.com",
+        "enf_type": "REDIRECT_302"
+      },
+      "IGNORE_ALERT": {
+        "id": "hYhxOCeH",
+        "enf_type": "IGNORE_ALERT"
+      },
+      "IGNORE_BLOCK": {
+        "id": "exmaple",
+        "enf_type": "IGNORE_BLOCK"
+      },
+      "NULL_BLOCK": {
+        "id": "null_block"
+      },
+      "NULL_ALERT": {
+        "id": "null_alert"
+      },
+      "IGNORE_CUSTOM_RESPONSE": {
+        "id": "ignore me :P",
+        "response_body_base64": "aWdub3JlIG1lIDpQCg==",
+        "status": 401
+      }
+    },
+    "spoof_bot_action_type": "BROWSER_CHALLENGE",
+    "known_bots" : [
+      {
+         "bot_token" : "google",
+         "action_type" : "DROP_REQUEST"
+      },
+      {
+        "bot_token" : "facebook",
+        "action_type" : "ALERT"
+      },
+      {
+        "bot_token" : "msn",
+        "action_type" : "BROWSER_CHALLENGE"
+      },
+      {
+        "bot_token" : "twitter",
+        "action_type" : "BLOCK_REQUEST"
+      },
+      {
+        "bot_token": "yandex",
+        "action_type": "CUSTOM_RESPONSE",
+        "spoof_action_type": "REDIRECT_302"
+      },
+      {
+        "bot_token": "other",
+        "action_type" : "BLOCK_REQUEST"
+      }
+    ],
+    "bots_prod_id":"w12347"
+}

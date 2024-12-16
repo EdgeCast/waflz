@@ -1,6 +1,6 @@
 Format Conversions with waflz_dump
 ----------------------------------
-`waflz <https://github.com/edgio/waflz>`_ can interoperate with ModSecurity rules in 3 format: json, protocol buffers (binary), and ModSecurity rules format.  `waflz_dump <https://github.com/edgio/waflz/tree/master/util/waflz_dump>`_ is a utility to convert between the 3 formats.  waflz_dump is more than a curiosity, however.  It has practical uses at Edgio for exposing ruleset information via API's, as ModSecurity Rule format is not conducive to HTTP API usage.
+`waflz <https://github.com/edgioinc/waflz>`_ can interoperate with ModSecurity rules in 3 format: json, protocol buffers (binary), and ModSecurity rules format.  `waflz_dump <https://github.com/edgioinc/waflz/tree/master/util/waflz_dump>`_ is a utility to convert between the 3 formats.  waflz_dump is more than a curiosity, however.  It has practical uses at Edgio for exposing ruleset information via API's, as ModSecurity Rule format is not conducive to HTTP API usage.
 
 A Little Conversion Example (`ShellShock <https://en.wikipedia.org/wiki/Shellshock_(software_bug)>`_)
 =====================================================================================================

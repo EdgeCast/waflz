@@ -1,0 +1,22 @@
+{
+    "id": "sp00f",
+    "customer_id":"0052",
+    "name": "my spoof checker",
+    "last_modified_date": "2019-04-18T19:48:25.142172Z",
+    "bots_prod_id":"WACKR4",
+    "actions":{
+        "BLOCK_REQUEST": {},
+        "ALERT": {},
+        "REDIRECT_302" : {},
+        "CUSTOM_RESPONSE": {
+            "response_body_base64": "VGhpcyBpcyBwcm9maWxlIGN1c3RvbSByZXNwb25zZQo=",
+            "response_headers": {
+              "x-ec-rules": "rejected"
+            },
+            "status": 403,
+            "id": "zeAXrllT",
+            "name": "ACTION",
+            "enf_type": "CUSTOM_RESPONSE"
+          }   
+    }
+}

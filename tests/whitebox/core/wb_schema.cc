@@ -114,23 +114,8 @@ void run_schema_test(std::string a_test_name)
                         // check if json data is valid
                         // against schema
                         // ---------------------------------
-                        ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(
-                            l_ctx, DEFAULT_BODY_SIZE_MAX, NULL);
-                        // ---------------------------------
-                        // Set JSON Data in
-                        // request
-                        // ---------------------------------
-                        char *l_input_buf =
-                            (char *)malloc(sizeof(char) * l_input_buf_len);
-                        std::strncpy(
-                            l_input_buf, l_sb.GetString(), l_input_buf_len);
-                        l_rqst_ctx->m_body_data = l_input_buf;
-                        l_rqst_ctx->m_body_len = l_input_buf_len;
                         waflz_pb::event *l_event = NULL;
-                        // ---------------------------------
-                        // Process request
-                        // ---------------------------------
-                        l_s = l_schema->process(&l_event, l_ctx, &l_rqst_ctx);
+                        l_s = l_schema->process(&l_event, l_ctx, l_sb.GetString(), l_input_buf_len);
                         REQUIRE(l_s == WAFLZ_STATUS_OK);
                         // ---------------------------------
                         // Event should not
@@ -141,11 +126,7 @@ void run_schema_test(std::string a_test_name)
                         // ---------------------------------
                         // Cleanup
                         // ---------------------------------
-                        free(l_input_buf);
-                        l_input_buf = NULL;
-                        l_rqst_ctx->m_body_data = NULL;
                         if (l_event) delete l_event;
-                        delete l_rqst_ctx;
                 }
                 delete l_schema;
         }

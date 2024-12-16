@@ -1,0 +1,36 @@
+{
+    "id": "D58gMFTz",
+    "api_gw_id":"nif70s89",
+    "customer_id": "0050",
+    "last_modified_date": "2019-04-18T19:48:25.142172Z",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "iss_position": {
+          "type": "object",
+          "properties": {
+            "longitude": {
+              "type": "string"
+            },
+            "latitude": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "latitude",
+            "longitude"
+          ]
+        },
+        "timestamp": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "message",
+        "timestamp"
+      ]
+    }
+  }

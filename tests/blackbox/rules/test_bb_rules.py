@@ -156,7 +156,7 @@ def test_bb_rule_target_update_xml_var(setup_waflz_server):
     #print(json.dumps(l_r_json,indent=4))
     assert l_r_json['rule_intercept_status'] == 403
     assert 'Restricted SQL Character Anomaly Detection (args): # of special characters exceeded (12)' in l_r_json['sub_event'][0]['rule_msg']
-    assert l_r_json['matched_var']['name'] == 'WE1MOi8q'
+    assert l_r_json['sub_event'][0]['matched_var']['name'] == 'WE1MOi8q'
     l_conf = {}
     l_file_path = os.path.dirname(os.path.abspath(__file__))
     l_conf_path = os.path.realpath(os.path.join(l_file_path, 'test_bb_rules.waf.prof.json'))
@@ -242,13 +242,104 @@ def test_bb_rule_ua(setup_waflz_server_rules):
     assert 'Request User-Agent is bananas' in l_r_json['rule_msg']
     assert '2020-10-06T18:18:09.329793Z' in l_r_json['config_last_modified']
 # ------------------------------------------------------------------------------
+# test_bb_rule_ja3
+#
+# NOTE: This rule will fire for any request because waflz_server
+# returns a static ja3. i make it fire last by putting it in phase 2
+# ------------------------------------------------------------------------------
+def test_bb_rule_ja3(setup_waflz_server_rules):
+    l_uri = G_TEST_HOST
+    l_headers = {
+        'Host': 'example.com',
+    }
+    l_r = requests.get(l_uri, headers=l_headers)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert len(l_r_json) > 0
+    # print(json.dumps(l_r_json,indent=4))
+    assert l_r_json['rule_intercept_status'] == 403
+    assert 'ja3 is fishy' in l_r_json['rule_msg']
+    assert '2020-10-06T18:18:09.329793Z' in l_r_json['config_last_modified']
+# ------------------------------------------------------------------------------
+# test_bb_rule_ja4
+# ------------------------------------------------------------------------------
+def test_bb_rule_ja4(setup_waflz_server_rules):
+    l_uri = G_TEST_HOST
+    l_headers = {
+        'Host': 'example.com',
+        'x-waflz-ja3': 'wangwangja4',
+        'x-waflz-ja4': 't12i1314h2_f57a46bbacb6_3939823b2ae2'
+    }
+    l_r = requests.get(l_uri, headers=l_headers)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert len(l_r_json) > 0
+    # print(json.dumps(l_r_json,indent=4))
+    assert l_r_json['rule_intercept_status'] == 403
+    assert 'ja4 is fishy' in l_r_json['rule_msg']
+    assert '2020-10-06T18:18:09.329793Z' in l_r_json['config_last_modified']
+# ------------------------------------------------------------------------------
+# test_bb_rule_ja4
+# ------------------------------------------------------------------------------
+def test_bb_rule_ja4_a(setup_waflz_server_rules):
+    l_uri = G_TEST_HOST
+    l_headers = {
+        'Host': 'example.com',
+        'x-waflz-ja3': 'wangwangja4',
+        'x-waflz-ja4_a': 't12i1314h2'
+    }
+    l_r = requests.get(l_uri, headers=l_headers)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert len(l_r_json) > 0
+    # print(json.dumps(l_r_json,indent=4))
+    assert l_r_json['rule_intercept_status'] == 403
+    assert 'ja4_a is fishy' in l_r_json['rule_msg']
+    assert '2020-10-06T18:18:09.329793Z' in l_r_json['config_last_modified']
+# ------------------------------------------------------------------------------
+# test_bb_rule_ja4_b
+# ------------------------------------------------------------------------------
+def test_bb_rule_ja4_b(setup_waflz_server_rules):
+    l_uri = G_TEST_HOST
+    l_headers = {
+        'Host': 'example.com',
+        'x-waflz-ja3': 'wangwangja4',
+        'x-waflz-ja4_b': 'f57a46bbacb6'
+    }
+    l_r = requests.get(l_uri, headers=l_headers)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert len(l_r_json) > 0
+    # print(json.dumps(l_r_json,indent=4))
+    assert l_r_json['rule_intercept_status'] == 403
+    assert 'ja4_b is fishy' in l_r_json['rule_msg']
+    assert '2020-10-06T18:18:09.329793Z' in l_r_json['config_last_modified']
+# ------------------------------------------------------------------------------
+# test_bb_rule_ja4_c
+# ------------------------------------------------------------------------------
+def test_bb_rule_ja4_c(setup_waflz_server_rules):
+    l_uri = G_TEST_HOST
+    l_headers = {
+        'Host': 'example.com',
+        'x-waflz-ja3': 'wangwangja4',
+        'x-waflz-ja4_c': '3939823b2ae2'
+    }
+    l_r = requests.get(l_uri, headers=l_headers)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert len(l_r_json) > 0
+    # print(json.dumps(l_r_json,indent=4))
+    assert l_r_json['rule_intercept_status'] == 403
+    assert 'ja4_c is fishy' in l_r_json['rule_msg']
+    assert '2020-10-06T18:18:09.329793Z' in l_r_json['config_last_modified']
+# ------------------------------------------------------------------------------
 # test_bb_rule_streq_values
 # ------------------------------------------------------------------------------
 def test_bb_rule_streq_values(setup_waflz_server_rules):
     l_uri = G_TEST_HOST
     l_headers = {
         'Host': 'example.com',
-        'User-Agent': "test3"
+        'User-Agent': 'test3'
     }
     l_r = requests.get(l_uri, headers=l_headers)
     assert l_r.status_code == 200
@@ -257,3 +348,26 @@ def test_bb_rule_streq_values(setup_waflz_server_rules):
     assert len(l_r_json['sub_event']) > 0
     assert l_r_json['sub_event'][0]['rule_id'] == 231548
     assert 'Request user-agent found in values' in l_r_json['rule_msg']
+# ------------------------------------------------------------------------------
+# test_bb_rule_streq_values
+# ------------------------------------------------------------------------------
+def test_bb_rule_multipart_bodies(setup_waflz_server_rules):
+    l_uri = G_TEST_HOST
+    l_headers = {
+        'Host': 'example.com',
+        'User-Agent': 'dev',
+        'x-waflz-ja3' : 'wangwangja3',
+        'Content-Type': 'multipart/form-data; ------WebKitFormBoundary5WJ61X4PRwyYKlip'
+        }
+
+    l_body = """
+            {{randstr(4097,4097)}}
+            test upload.action
+    """
+    l_r = requests.post(l_uri, headers=l_headers, data=l_body)
+    assert l_r.status_code == 200
+    l_r_json = l_r.json()
+    assert l_r_json['rule_intercept_status'] == 403
+    assert len(l_r_json['sub_event']) > 0
+    assert l_r_json['sub_event'][0]['rule_id'] == 66000201
+    assert 'Apache Struts unsafe file upload request (CVE-2023-50164)' in l_r_json['rule_msg']

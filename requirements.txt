@@ -1,3 +1,9 @@
 pytest>=3.0.4
 pytest-sugar>=0.8.0
 requests>=2.20.0
+Flask
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
+urllib3>=2.2.2 # not directly required, pinned by Snyk to avoid a vulnerability
+psutil>=5.9.0
+tqdm>=4.64.0
+werkzeug>=3.0.6 # not directly required, pinned by Snyk to avoid a vulnerability

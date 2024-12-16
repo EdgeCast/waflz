@@ -33,6 +33,7 @@ public:
         ~regex();
         void get_err_info(const char** a_reason, int& a_offset);
         int32_t init(const char* a_buf, uint32_t a_len);
+        int compare(std::string a_input, std::string* ao_captured = NULL);
         int compare(const char* a_buf, uint32_t a_len, std::string* ao_captured = NULL);
         int compare_all(const char* a_buf, uint32_t a_len, data_list_t* ao_captured);
         const std::string& get_regex_string(void) { return m_regex_str; }

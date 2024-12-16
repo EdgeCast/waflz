@@ -70,10 +70,12 @@ int32_t parser_url_encoded::finish(void)
         }
         uint32_t l_invalid_cnt = 0;
         int32_t l_s;
+        uint32_t l_parse_len = m_rqst_ctx->m_body_len;
         l_s = parse_args(m_rqst_ctx->m_body_arg_list,
+                         m_rqst_ctx->m_body_arg_map,
                          l_invalid_cnt,
                          m_rqst_ctx->m_body_data,
-                         m_rqst_ctx->m_body_len,
+                         l_parse_len,
                          '&');
         if(l_s != WAFLZ_STATUS_OK)
         {

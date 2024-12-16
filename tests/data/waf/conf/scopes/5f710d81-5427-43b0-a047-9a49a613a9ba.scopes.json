@@ -1,0 +1,31 @@
+{
+  "id": "TJw5B5Iz",
+  "customer_id": "5f710d81-5427-43b0-a047-9a49a613a9ba",
+  "team_config": true,
+  "account_type": "Z",
+  "bot_tier": "A",
+  "last_modified_by": "Mr. Monkeez",
+  "scopes": [
+    {
+      "acl_prod_id": "o61t6wiY",
+      "acl_prod_action": {
+        "enf_type": "CUSTOM_RESPONSE",
+        "response_body_base64": "YWNsIHJlamVjdGVkIGZyb20gdGVhbSBjb25maWcK",
+        "response_headers": {
+          "x-ec-rules": "acl-rejected-from-team-config"
+        },
+        "status": 403
+      },
+      "host": {
+        "is_negated": false,
+        "type": "EM",
+        "value": "aclcheck.com"
+      },
+      "path": {
+        "is_negated": false,
+        "type": "EM",
+        "value": "/test.html"
+      }
+    }
+  ]
+}

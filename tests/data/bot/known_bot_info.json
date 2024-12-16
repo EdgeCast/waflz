@@ -1,0 +1,227 @@
+{
+    "ahrefs": {
+        "ips": [],
+        "asns": [  ],
+        "user_agents": [
+            "AhrefsSiteAudit",
+            "AhrefsBot"
+        ],
+        "categories": {
+            "Scrapper": [
+                "AhrefsSiteAudit"
+            ],
+            "example": [
+                "AhrefsSiteAudit_2"
+            ]
+        }
+    },
+    "apple": {
+        "asns": [  ],
+        "ips": [
+            "17.121.115.98/31"
+        ],
+        "user_agents": [
+            "Applebot"
+        ]
+
+    },
+    "baidu": {
+        "asns": [],
+        "user_agents": [
+            "Baiduspider"
+        ]
+    },
+    "facebook": {
+        "asns": [],
+        "ips": [
+            "69.63.176.0/22"
+        ],
+        "user_agents": [
+            "facebookexternalhit",
+            "facebookcatalog"
+        ],
+        "categories": {
+            "Social Media/Messaging Bots": [
+                "facebookexternalhit",
+                "facebookcatalog"
+            ]
+        }
+
+    },
+    "google": {
+        "asns": [ 15133 ],
+        "ips": [
+            "74.125.218.93/32"
+        ],
+        "user_agents": [
+            "googleweblight",
+            "Storebot-Google",
+            "Mediapartners-Google",
+            "Googlebot-Video",
+            "Googlebot-News",
+            "Googlebot-Image",
+            "Googlebot",
+            "Google-Read-Aloud",
+            "FeedFetcher-Google",
+            "DuplexWeb-Google",
+            "AdsBot-Google-Mobile-Apps",
+            "AdsBot-Google-Mobile",
+            "AdsBot-Google",
+            "APIs-Google"
+        ],
+        "categories": {
+            "Search Engine/SEO bots": [
+                "Googlebot",
+                "Googlebot-Image"
+            ],
+            "Ads": [
+                "GoogleAdsBot"
+            ],
+            "Rss bots": [
+                "FeedFetcher-Google"
+            ],
+            "Scrapper": [
+                "Googlebot_2",
+                "Googlebot-Image_2"
+            ]
+        }
+    },
+    "msn": {
+        "asns": [ 8075, 15133 ],
+        "ips": [
+            "52.231.148.0/28"
+        ],
+        "user_agents": [
+            "bingbot",
+            "adidxbot",
+            "BingPreview"
+        ],
+        "categories": {
+            "Search Engine/SEO bots": [
+                "bingbot",
+                "BingPreview"
+            ],
+            "Ads": [
+                "adidxbot"
+            ]
+        }
+    },
+    "semrush": {
+        "asns": [],
+        "user_agents": [
+            "SplitSignalBot",
+            "SiteAuditBot",
+            "SemrushBot-SWA",
+            "SemrushBot-SI",
+            "SemrushBot-CT",
+            "SemrushBot-COUB",
+            "SemrushBot-BM",
+            "SemrushBot-BA"
+        ]
+    },
+    "twitter": {
+        "ips": [
+            "199.16.156.0/19"
+        ],
+        "user_agents": [
+            "Twitterbot"
+        ]
+    },
+    "uptimerobot": {
+        "asns": [],
+        "user_agents": [
+            "UptimeRobot"
+        ]
+    },
+    "yandex": {
+        "asns": [],
+        "ips": [
+            "141.8.142.76/32"
+        ],
+        "user_agents": [
+            "YandexWebmaster",
+            "YandexVideoParser",
+            "YandexVideo",
+            "YandexVertis",
+            "YandexVerticals",
+            "YandexTurbo",
+            "YandexTracker",
+            "YandexSpravBot",
+            "YandexSitelinks",
+            "YandexSearchShop",
+            "YandexScreenshotBot",
+            "YandexRCA",
+            "YandexPartner",
+            "YandexPagechecker",
+            "YandexOntoDBAPI",
+            "YandexOntoDB",
+            "YandexNews",
+            "YandexMobileScreenShotBot",
+            "YandexMobileBot",
+            "YandexMetrika",
+            "YandexMedia",
+            "YandexMarket",
+            "YandexImages",
+            "YandexImageResizer",
+            "YandexForDomain",
+            "YandexFavicons",
+            "YandexDirectDyn",
+            "YandexDirect",
+            "YandexCalendar",
+            "YandexBot",
+            "YandexBlogs",
+            "YandexAdNet",
+            "YandexAccessibilityBot"
+        ],
+        "categories": {
+            "Search Engine/SEO bots": [
+                "YandexBot"
+            ],
+            "Miscellaneous": [
+                "YandexBlogs",
+                "YandexMobileScreenShotBot"
+            ]
+        }
+    },
+    "other": {
+        "user_agents": [
+            "fr_bot",
+            "coccocbot",
+            "bingbot",
+            "archive.org_bot",
+            "YandexImages",
+            "YandexBot",
+            "UptimeRobot",
+            "Twitterbot",
+            "SiteAuditBot",
+            "SeznamBot",
+            "SemrushBot",
+            "SeekportBot",
+            "Qwantify",
+            "Pinterestbot",
+            "PingdomBot",
+            "PetalBot",
+            "PaperLiBot",
+            "Neevabot",
+            "Monsidobot",
+            "MojeekBot",
+            "Mail.RU_Bot",
+            "MJ12bot",
+            "Linespider",
+            "Googlebot",
+            "DnBCrawler",
+            "Discordbot",
+            "BingPreview",
+            "Baiduspider-render",
+            "Baiduspider-ads",
+            "Baiduspider",
+            "BPetalBot",
+            "AwarioSmartBot",
+            "Applebot",
+            "AppEngine-Google",
+            "AhrefsBot",
+            "AdsBot-Google",
+            "AASA-Bot"
+        ]
+    }
+}

@@ -187,6 +187,15 @@ int regex::compare(const char* a_buf, uint32_t a_len, std::string* ao_captured)
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
+int regex::compare(std::string a_input, std::string* ao_captured)
+{
+        return this->compare(a_input.c_str(), a_input.length(), ao_captured);
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
 int regex::compare_all(const char* a_buf, uint32_t a_len, data_list_t* ao_captured)
 {
         // -----------------------------------------

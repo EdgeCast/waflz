@@ -1,6 +1,7 @@
 {
   "customer_id": "0052",
   "account_type": "P",
+  "bot_tier": "A",
   "partner_id": "this_is_the_partner_id",
   "id":"3lTIzIqv",
   "last_modified_date": "2019-04-18T19:48:25.142172Z",
@@ -15,6 +16,7 @@
       "type": "EM",
       "value": "rulestest.com"
     },
+    "bot_manager_config_id" : "7kDny8RP",
     "path": {
       "is_negated": false,
       "type": "EM",
@@ -52,6 +54,95 @@
     }
   },
   {
+    "id":"wHyMHxV7",
+    "name": "Scopes to test bot rules",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "mybot.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "limits":[{
+       "id":"selWEB8I",
+       "action":{
+          "id":"zeAXrllT",
+          "name":"ddos-action",
+          "status": 403,
+          "duration_sec": 2,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64": "ZGRvcyBlbmZvcmNlbWVudCBmcm9tIGJvdCBjb25maWcK"
+       }
+    }],
+   "bot_manager_config_id" : "7kDny8RP",
+    "profile_prod_id": "KsdoThsq",
+    "profile_prod_action": {
+      "id": "zeAXrllT",
+      "name": "ACTION",
+      "response_body_base64": "VGhpcyBpcyBwcm9maWxlIGN1c3RvbSByZXNwb25zZQo=",
+      "response_headers": {
+        "x-ec-rules": "rejected"
+      },
+      "status": 403,
+      "enf_type": "CUSTOM_RESPONSE"
+    }
+  },
+  {
+    "id":"Rml2d8dr",
+    "name": "Scopes to test both bot manager and rules",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "mybotmanager.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "limits":[{
+       "id":"selWEB8I",
+       "action":{
+          "id":"zeAXrllT",
+          "name":"ddos-action",
+          "status": 403,
+          "duration_sec": 2,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64": "ZGRvcyBlbmZvcmNlbWVudCBmcm9tIGJvdCBjb25maWcK"
+       }
+    }],
+    "bot_manager_config_id": "7kDny8RP",
+    "profile_prod_id": "KsdoThsq",
+    "profile_prod_action": {
+      "id": "zeAXrllT",
+      "name": "ACTION",
+      "response_body_base64": "VGhpcyBpcyBwcm9maWxlIGN1c3RvbSByZXNwb25zZQo=",
+      "response_headers": {
+        "x-ec-rules": "rejected"
+      },
+      "status": 403,
+      "enf_type": "CUSTOM_RESPONSE"
+    }
+  },
+ {
+    "id":"7Mc9MEPb",
+    "name": "Scopes to test custom bot challenge",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "mycustombotchallenge.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+   "bot_manager_config_id" : "8bYk-I8u"
+  },
+  {
     "id": "KlTjhs",
     "name": "scope for testing bodies",
     "host": {
@@ -70,6 +161,108 @@
       "name": "ACTION",
       "enf_type": "BLOCK_REQUEST"
     }
+  },
+  {
+    "id": "ft3l_JSX",
+    "name": "scope to test only bot manager without bot rules",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "botmanagertest.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "/test.html"
+    },
+    "limits":[{
+       "id":"selWEB8I",
+       "action":{
+          "id":"zeAXrllT",
+          "name":"ddos-action",
+          "status": 403,
+          "duration_sec": 2,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64": "ZGRvcyBlbmZvcmNlbWVudCBmcm9tIGJvdCBjb25maWcK"
+       }
+    }],
+    "bot_manager_config_id":"7kDny8RP",
+    "profile_prod_id": "KsdoThsq",
+    "profile_prod_action": {
+      "id": "zeAXrllT",
+      "name": "ACTION",
+      "response_body_base64": "VGhpcyBpcyBwcm9maWxlIGN1c3RvbSByZXNwb25zZQo=",
+      "response_headers": {
+        "x-ec-rules": "rejected"
+      },
+      "status": 403,
+      "enf_type": "CUSTOM_RESPONSE"
+    }
+  },
+  {
+    "id":"ZxZWS5NA",
+    "name": "Test custom bot challenge with bot manager",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "mycustombotmanagerchallenge.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "bot_manager_config_id":"8bYk-I8u"
+  },
+  {
+    "id":"ZxZWS5NA",
+    "name": "Test bot manager actions",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "allbotmanagerchallenges.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "bot_manager_config_id":"3bUjds87"
+  },
+  {
+    "id":"Q6Ougheq",
+    "name": "Test captcha with bot manager",
+    "recaptcha_site_key":"6LeZhkgjAAAAAKou7U4jcYEX8kUce79K1C620vp5",
+    "recaptcha_secret_key":"6LeZhkgjAAAAAISt6YTF8g-FIvK0MMfuFqiYqpjq",
+    "recaptcha_action_name":"wafcaptcha",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "testcaptcha.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "bot_manager_config_id":"DYhGetLq"
+  },
+  {
+    "id": "sp00f",
+    "name": "scope for spoof ip bot scores",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "spoof_testing.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "bot_manager_config_id" : "sp00f",
+    "use_spoof_ip_header": true,
+    "spoof_ip_header": "testing_ip"
   }
 ]
 }

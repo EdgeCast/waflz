@@ -1,0 +1,57 @@
+{
+  "id": "response",
+  "customer_id": "0050",
+  "name": "test",
+  "created_date": "5/28/2016 1:39:46 PM",
+  "last_modified_date": "2019-04-18T19:48:25.142172Z",
+  "ruleset_id": "OWASP-CRS-4.0",
+  "ruleset_version": "latest",
+  "policies" : [
+    "REQUEST-941-APPLICATION-ATTACK-XSS.conf",
+    "RESPONSE-950-DATA-LEAKAGES.conf"
+  ],
+  "rule_target_updates": [],
+  "custom_rules": [],
+  "disabled_rules": [],
+  "general_settings": {
+    "disallowed_extensions": [],
+    "validate_utf8_encoding": true,
+    "allowed_request_content_types": [
+      "application/x-www-form-urlencoded",
+      "multipart/form-data",
+      "text/xml",
+      "application/xml",
+      "application/x-amf",
+      "application/json"
+    ],
+    "xml_capture_xxe" : true,
+    "max_num_args": 25,
+    "total_arg_length": 64000,
+    "process_response_body": true,
+    "allowed_http_versions": [
+      "HTTP/1.0",
+      "HTTP/1.1"
+    ],
+    "process_request_body": true,
+    "disallowed_headers": [],
+    "xml_parser": true,
+    "json_parser" : true,
+    "arg_length": 8000,
+    "combined_file_sizes": 6291456,
+    "max_file_size": 6291456,
+    "anomaly_threshold": 1,
+    "response_header_name": "X-EC-Security-Audit",
+    "allowed_http_methods": [
+      "GET",
+      "POST",
+      "OPTIONS",
+      "HEAD",
+      "PUT",
+      "DELETE"
+    ],
+    "arg_name_length": 1024,
+    "response_mime_types": [],
+    "ignore_cookie": [],
+    "ignore_query_args": []
+  }
+}

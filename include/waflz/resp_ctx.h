@@ -17,6 +17,7 @@
 #ifdef __cplusplus
 #include <waflz/arg.h>
 #include <waflz/parser.h>
+#include <waflz/rqst_ctx.h>
 #include <list>
 #include <map>
 #include <strings.h>
@@ -63,6 +64,10 @@ typedef struct {
         get_resp_data_size_cb_t m_get_resp_cust_id_cb;
         get_rqst_data_cb_t m_get_rqst_src_addr_cb;
         get_rqst_data_cb_t m_get_rqst_uuid_cb;
+        get_rqst_data_size_cb_t m_get_rqst_header_size_cb;
+        get_rqst_kv_w_idx_cb_t m_get_rqst_header_w_idx_cb;
+        get_rqst_data_str_cb_t m_get_team_id_cb;
+        get_rqst_data_size_cb_t m_get_backend_port_cb;
 }resp_ctx_callbacks;
 #ifdef __cplusplus
 }
@@ -72,6 +77,8 @@ typedef struct {
 //! ----------------------------------------------------------------------------
 #ifdef __cplusplus
 class waf;
+class geoip2_mmdb;
+
 typedef std::map<std::string, std::string, cx_case_i_comp> cx_map_t;
 typedef std::map <data_t, data_t, data_case_i_comp> data_map_t;
 typedef std::list<data_t> data_list_t;
@@ -98,12 +105,17 @@ public:
         // -------------------------------------------------
         resp_ctx(void *a_ctx,
                  uint32_t a_body_len_max,
-                 const resp_ctx_callbacks *a_callbacks);
+                 uint32_t a_body_api_sec_len_max,
+                 const resp_ctx_callbacks *a_callbacks,
+                 int32_t a_content_length,
+                 void* a_srv);
         ~resp_ctx();
         // -------------------------------------------------
         // response header evaluation
         // -------------------------------------------------
-        int32_t init_phase_3();
+        int32_t init_phase_3(geoip2_mmdb &a_geoip2_mmdb);
+        const data_t* get_header(const std::string_view& header_name);
+        int32_t get_geo_data_from_mmdb(geoip2_mmdb &a_geoip2_mmdb);
         // -------------------------------------------------
         // response body evaluation
         // -------------------------------------------------
@@ -120,22 +132,29 @@ public:
         // -------------------------------------------------
         data_t m_src_addr;
         uint32_t m_an;
+        std::string m_team_id;
         data_t m_host;
         uint32_t m_port;
+        uint32_t m_backend_port;
         data_t m_method;
         data_t m_url;
         data_t m_uri;
         uint32_t m_uri_path_len;
-        uint64_t m_content_length;
+        int64_t m_content_length;
         data_list_t m_content_type_list;
         data_unordered_map_t m_header_map;
         const_arg_list_t m_header_list;
         uint32_t m_body_len_max;
+        uint32_t m_body_api_sec_len_max;
         char *m_body_data;
         uint32_t m_body_len;
         uint32_t m_resp_status;
+        std::string m_resp_status_str;
         bool m_intercepted;
         data_t m_req_uuid;
+        mutable_data_t m_src_asn_str;
+        std::string m_geo_cc_sd;
+        geoip_data m_geo_data;
         // -------------------------------------------------
         // collections...
         // -------------------------------------------------
@@ -155,6 +174,13 @@ public:
         // response ctx callbacks struct
         // -------------------------------------------------
         const resp_ctx_callbacks *m_callbacks;
+        // -------------------------------------------------
+        // TODO FIX!!! -not thread safe...
+        // -------------------------------------------------
+        uint32_t m_set_response_status;
+        bool m_signal_enf;
+        const waflz_pb::limit* m_limit;
+        const waflz_pb::limit* m_audit_limit;
 private:
         // -------------------------------------------------
         // private methods
@@ -166,12 +192,13 @@ private:
         // private members
         // -------------------------------------------------
         void *m_ctx;
+        void *m_srv;
 };
 #endif
 #ifdef __cplusplus
 extern "C" {
 #endif
-resp_ctx *init_resp_ctx(void *a_ctx, const uint32_t a_max_body_len, const resp_ctx_callbacks *a_callbacks, bool a_parse_json);
+resp_ctx *init_resp_ctx(void *a_ctx, const uint32_t a_max_body_len, uint32_t a_body_api_sec_len_max, const resp_ctx_callbacks *a_callbacks, bool a_parse_json);
 int32_t resp_ctx_cleanup(resp_ctx *a_resp_ctx);
 #ifdef __cplusplus
 }

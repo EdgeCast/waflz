@@ -623,6 +623,12 @@ static int32_t update_single_field(google::protobuf::Message& ao_msg,
         }
         case google::protobuf::FieldDescriptor::TYPE_MESSAGE:
         {
+                if (!a_val.IsObject())
+                {
+                        JSPB_PERROR("expected field '%s' to be an object",
+                                    a_field->full_name().c_str());
+                        return JSPB_ERROR;
+                }
                 JSPB_TRACE("case: message\n");
                 l_s = update_from_json(*(a_ref->MutableMessage(&ao_msg, a_field)),
                                        a_val);
@@ -882,6 +888,12 @@ static int32_t update_repeated_field(google::protobuf::Message& ao_msg,
         }
         case google::protobuf::FieldDescriptor::TYPE_MESSAGE:
         {
+                if (!a_val.IsArray())
+                {
+                        JSPB_PERROR("expected field '%s' to be an array of objects",
+                                    a_field->full_name().c_str());
+                        return JSPB_ERROR;
+                }
                 JSPB_TRACE("case: message\n");
                 l_s = update_repeated_message_field(ao_msg,
                                                     a_ref,
@@ -1057,11 +1069,11 @@ int32_t update_from_json(google::protobuf::Message& ao_msg,
                          const rapidjson::Value &a_val)
 {
         JSPB_TRACE("update_from_json ...\n");
-        //if(a_val.IsObject())
-        //{
-        //        JSPB_PERROR("error json not an object");
-        //        return JSPB_ERROR;
-        //}
+        if(!a_val.IsObject())
+        {
+               JSPB_PERROR("error json not an object");
+               return JSPB_ERROR;
+        }
         // Walk through the json members and insert them into the protobuf.
         const google::protobuf::Reflection* l_ref = ao_msg.GetReflection();
         const google::protobuf::Descriptor* l_des = ao_msg.GetDescriptor();
@@ -1079,7 +1091,7 @@ int32_t update_from_json(google::protobuf::Message& ao_msg,
                 // "user-agent" hack...
                 // TODO fix in json with "user_agent"
                 // -------------------------------
-                if(strncmp(i_k, "user-agent", i_m->name.GetStringLength()) == 0)
+                if(strncmp(i_k, "user-agent", strlen("user-agent")) == 0)
                 {
                         i_k = "user_agent";
                 }

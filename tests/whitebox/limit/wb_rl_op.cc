@@ -12,7 +12,7 @@
 //! ----------------------------------------------------------------------------
 #include "catch/catch.hpp"
 #include "op/regex.h"
-#include "op/nms.h"
+#include "waflz/nms.h"
 #include "waflz/def.h"
 #include "waflz/scopes.h"
 #include "waflz/rl_obj.h"

@@ -41,7 +41,8 @@ typedef enum {
         FIELD_BOT_JS,
         FIELD_AN,
         FIELD_RECAPTCHA_SITE_KEY,
-        FIELD_RECAPTCHA_ACTION_NAME
+        FIELD_RECAPTCHA_ACTION_NAME,
+        FIELD_CHALLENGE_DIFFICULTY
 } field_t;
 //! ----------------------------------------------------------------------------
 //! Types
@@ -86,6 +87,7 @@ const str_field_map_t::value_type g_str_field_map_pairs[]= {
         str_field_map_t::value_type("RECAPTCHA_SITE_KEY", FIELD_RECAPTCHA_SITE_KEY),
         str_field_map_t::value_type("RECAPTCHA_ACTION_NAME", FIELD_RECAPTCHA_ACTION_NAME),
         str_field_map_t::value_type("RECAPTCHA_ACTION_NAME", FIELD_RECAPTCHA_ACTION_NAME),
+        str_field_map_t::value_type("CHALLENGE_DIFFICULTY", FIELD_CHALLENGE_DIFFICULTY),
 };
 const str_field_map_t g_str_field_map(g_str_field_map_pairs,
                                       g_str_field_map_pairs + (sizeof(g_str_field_map_pairs)/sizeof(g_str_field_map_pairs[0])));
@@ -456,6 +458,93 @@ static int32_t rr_render(char* ao_buf,
                         }
                         break;
                 }
+               // ------------------------------------------
+                // FIELD_BOT_PROB
+                // -----------------------------------------
+                case FIELD_BOT_PROB:
+                {
+                        if(!a_ctx ||
+                           a_ctx->m_bot_ch.empty())
+                        {
+                                break;
+                        }
+                        ao_len += a_ctx->m_bot_ch.length();
+                        if(ao_buf)
+                        {
+                                memcpy(l_buf, a_ctx->m_bot_ch.c_str(), a_ctx->m_bot_ch.length());
+                                l_buf += a_ctx->m_bot_ch.length();
+                        }
+                        break;
+                }
+                // -----------------------------------------
+                // FIELD_BOT_JS
+                // -----------------------------------------
+                case FIELD_BOT_JS:
+                {
+                       if (!a_ctx ||
+                           a_ctx->m_bot_js.empty())
+                        {
+                                break;
+                        }
+                        ao_len += a_ctx->m_bot_js.length();
+                        if (ao_buf)
+                        {
+                                memcpy(l_buf, a_ctx->m_bot_js.c_str(), a_ctx->m_bot_js.length());
+                                l_buf += a_ctx->m_bot_js.length();
+                        }
+                        break;
+                }
+                // -----------------------------------------
+                // FIELD_RECAPTCHA_SITE_KEY
+                // -----------------------------------------
+                case FIELD_RECAPTCHA_SITE_KEY:
+                {
+                        if (!a_ctx ||
+                            a_ctx->m_recaptcha_site_key.empty())
+                        {
+                                break;
+                        }
+                        ao_len += a_ctx->m_recaptcha_site_key.length();
+                        if (ao_buf)
+                        {
+                                memcpy(l_buf, 
+                                       a_ctx->m_recaptcha_site_key.c_str(),
+                                       a_ctx->m_recaptcha_site_key.length());
+                                l_buf += a_ctx->m_recaptcha_site_key.length();
+                        }
+                        break;
+                }
+                // -----------------------------------------
+                // FIELD_RECAPTCHA_ACTION_NAME
+                // -----------------------------------------
+                case FIELD_RECAPTCHA_ACTION_NAME:
+                {
+                        if (!a_ctx ||
+                            a_ctx->m_recaptcha_action_name.empty())
+                        {
+                                break;
+                        }
+                        ao_len += a_ctx->m_recaptcha_action_name.length();
+                        if (ao_buf)
+                        {
+                                memcpy(l_buf, 
+                                       a_ctx->m_recaptcha_action_name.c_str(),
+                                       a_ctx->m_recaptcha_action_name.length());
+                                l_buf += a_ctx->m_recaptcha_action_name.length();
+                        }
+                        break;
+                }
+                case FIELD_CHALLENGE_DIFFICULTY:
+                {
+                        std::string l_tmp = std::to_string(a_ctx->m_challenge_difficulty);
+                        ao_len += l_tmp.length();
+                        if(ao_buf)
+                        {
+                                memcpy(l_buf, l_tmp.c_str(), l_tmp.length());
+                                l_buf += l_tmp.length();
+                        }
+                        break;
+                }                        
                 // -----------------------------------------
                 // default
                 // -----------------------------------------

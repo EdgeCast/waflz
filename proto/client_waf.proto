@@ -1,0 +1,22 @@
+syntax = "proto2";
+package waflz_pb;
+import "action.proto";
+//: ----------------------------------------------------------------------------
+//: client waf message
+//: ----------------------------------------------------------------------------
+message client_waf {
+        // -------------------------------------------------
+        // properties
+        // -------------------------------------------------
+        optional string id = 1;
+        optional string name = 2;
+        optional string customer_id = 3;
+        optional string last_modified_date = 4;
+        optional string last_modified_by = 5;
+        optional bool team_config = 6;
+        // -------------------------------------------------
+        // header info
+        // -------------------------------------------------
+        repeated enforcement.header_t headers = 100;
+        optional string csp_script_nonce = 110;
+}

@@ -21,8 +21,6 @@
 #include "support/file_util.h"
 #include "support/ndebug.h"
 #include "op/regex.h"
-#include "op/ac.h"
-#include "op/nms.h"
 #include "op/byte_range.h"
 #include "core/macro.h"
 #include "core/tx.h"
@@ -96,6 +94,17 @@ engine::engine():
         m_compiled_config_map(),
         m_ctype_parser_map(),
         m_ruleset_root_dir("/oc/local/waf/ruleset/"),
+        m_bot_data_dir("/oc/local/waf/bot/bot_data/"),
+        m_knb_info_map(),
+        m_use_knb_cat(false),
+        m_knb_tokens(),
+        m_knb_ua_to_data_pkg(),
+        m_knb_categories(),
+        m_use_bot_lmdb(false),
+        m_use_bot_lmdb_new(false),
+        m_use_pop_count(false),
+        m_csp_endpoint_uri(),
+        m_bot_db(),
         m_geoip2_mmdb(),
         m_geoip2_db(),
         m_geoip2_isp_db(),
@@ -128,6 +137,10 @@ engine::~engine()
                 if (i_cfg->second) { delete i_cfg->second; i_cfg->second = NULL;}
         }
         // -------------------------------------------------
+        // destruct known bots info maps
+        // -------------------------------------------------
+        clear_known_bot_map();
+        // -------------------------------------------------
         // *************************************************
         //             xml initialization
         // *************************************************
@@ -148,6 +161,32 @@ engine::~engine()
                 delete m_geoip2_mmdb;
                 m_geoip2_mmdb = NULL;
         }
+}
+//! ----------------------------------------------------------------------------
+//! \details TODO
+//! \return  TODO
+//! \param   TODO
+//! ----------------------------------------------------------------------------
+int32_t engine::clear_known_bot_map()
+{
+        // -------------------------------------------------
+        // destruct known bots info maps
+        // -------------------------------------------------
+        for (auto i_knb = m_knb_info_map.begin();
+            i_knb != m_knb_info_map.end();
+            ++i_knb)
+        {
+                if (i_knb->second) { delete i_knb->second; i_knb->second = NULL;}
+        }
+        m_knb_info_map.clear();
+        for (auto i_knb = m_knb_ua_to_data_pkg.begin();
+            i_knb != m_knb_ua_to_data_pkg.end();
+            ++i_knb)
+        {
+                if (i_knb->second) { delete i_knb->second; i_knb->second = NULL;}
+        }
+        m_knb_ua_to_data_pkg.clear();
+        return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
 //! \details TODO
@@ -838,6 +877,402 @@ void engine::set_geoip2_dbs(const std::string& a_geoip2_db,
 {
         m_geoip2_db = a_geoip2_db;
         m_geoip2_isp_db = a_geoip2_isp_db;
+}
+//! -----------------------------------------------------------------------------
+//! \details Read known bots info file and construct map
+//! \return  TODO
+//! \param   a_file_path: file path
+//! \param   a_file_path_len: file path len
+//! -----------------------------------------------------------------------------
+int32_t engine::load_known_bot_info_file(const char* a_file_path, uint32_t a_file_path_len)
+{
+        int32_t l_s;
+        char* l_buf = NULL;
+        uint32_t l_buf_len;
+        l_s = read_file(a_file_path, &l_buf, l_buf_len);
+        if (l_s != WAFLZ_STATUS_OK)
+        {
+                WAFLZ_PERROR(m_err_msg, ":read_file[%s]: %s",
+                             a_file_path,
+                             ns_waflz::get_err_msg());
+                if (l_buf) { free(l_buf); l_buf = NULL; l_buf_len = 0;}
+                return WAFLZ_STATUS_ERROR;
+        }
+        l_s = load_known_bot(l_buf, l_buf_len);
+        if (l_s != WAFLZ_STATUS_OK)
+        {
+                if (l_buf) { free(l_buf); l_buf = NULL; l_buf_len = 0; }
+                return WAFLZ_STATUS_ERROR;
+        }
+        if (l_buf) { free(l_buf); l_buf = NULL; l_buf_len = 0;}
+        return WAFLZ_STATUS_OK;
+}
+//! -----------------------------------------------------------------------------
+//! \details takes a rapidjson value and turns it into an nms object
+//! \return  waflz status
+//! \param   a_kb_array: list of ips
+//! \param   ao_nms: the nms object to populate
+//! -----------------------------------------------------------------------------
+int32_t engine::parse_string_array_to_nms(const rapidjson::Value& a_kb_array, nms& ao_nms)
+{
+        // -------------------------------------------------
+        // quick exit if value is wrong type
+        // -------------------------------------------------
+        if (!a_kb_array.IsArray())
+        {
+                WAFLZ_PERROR(m_err_msg, "invalid format of bot ip list, value for bot ips must be a list");
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // add the tokens to the nms
+        // -------------------------------------------------
+        for (rapidjson::SizeType i = 0; i < a_kb_array.Size(); ++i)
+        {
+                // -----------------------------------------
+                // get token from array - skip if empty
+                // -----------------------------------------
+                const char* l_ip = a_kb_array[i].GetString();
+                if (l_ip == NULL) { continue; }
+                // -----------------------------------------
+                // add value to AC object
+                // -----------------------------------------
+                int32_t l_s = ao_nms.add(l_ip, strlen(l_ip));
+                if (l_s != WAFLZ_STATUS_OK)
+                {
+                        WAFLZ_PERROR(m_err_msg, "Failed to add '%s' to nms\n", l_ip);
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // return success
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
+}
+//! -----------------------------------------------------------------------------
+//! \details takes a rapidjson value and turns it into an AC object
+//! \return  waflz status
+//! \param   a_kb_array: list of user agents
+//! \param   ao_ac: the ac object to populate
+//! -----------------------------------------------------------------------------
+int32_t engine::parse_string_array_to_ac(const rapidjson::Value& a_kb_array, ac& ao_ac)
+{
+        // -------------------------------------------------
+        // quick exit if value is wrong type
+        // -------------------------------------------------
+        if (!a_kb_array.IsArray())
+        {
+                WAFLZ_PERROR(m_err_msg, "invalid format of bot ua list, value for bot token must be a list");
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // add the tokens to the ac
+        // -------------------------------------------------
+        for (rapidjson::SizeType i = 0; i < a_kb_array.Size(); ++i)
+        {
+                // -----------------------------------------
+                // get token from array - skip if empty
+                // -----------------------------------------
+                const char* l_ua = a_kb_array[i].GetString();
+                if (l_ua == NULL) { continue; }
+                // -----------------------------------------
+                // add value to AC object
+                // -----------------------------------------
+                int32_t l_s = ao_ac.add(l_ua, strlen(l_ua));
+                if (l_s != WAFLZ_STATUS_OK)
+                {
+                        WAFLZ_PERROR(m_err_msg, "Failed to add '%s' to ac\n", l_ua);
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // return success
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
+}
+//! -----------------------------------------------------------------------------
+//! \details takes a rapidjson value and turns it into an unordered uint32_t set
+//! \return  waflz status
+//! \param   a_kb_array: list of asns
+//! \param   ao_set: the unordered set object to populate
+//! -----------------------------------------------------------------------------
+int32_t engine::parse_uint_array_to_unorder_set(const rapidjson::Value& a_kb_array,
+                                                unordered_uint_set_t& ao_set)
+{
+        // -------------------------------------------------
+        // quick exit if value is wrong type
+        // -------------------------------------------------
+        if (!a_kb_array.IsArray())
+        {
+                WAFLZ_PERROR(m_err_msg, "invalid format of bot asn list, value for asns must be a list");
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // add the tokens to the ac
+        // -------------------------------------------------
+        for (rapidjson::SizeType i = 0; i < a_kb_array.Size(); ++i)
+        {
+                // -----------------------------------------
+                // safety check
+                // -----------------------------------------
+                if ( !a_kb_array[i].IsUint() )
+                {
+                        WAFLZ_PERROR(m_err_msg, "invalid value in bot asn list. expected an integer.");
+                        return WAFLZ_STATUS_ERROR;
+                }
+                // -----------------------------------------
+                // get token from array - skip if empty
+                // -----------------------------------------
+                uint32_t l_entry = a_kb_array[i].GetUint();
+                // -----------------------------------------
+                // add value to unordered set object
+                // -----------------------------------------
+                ao_set.insert(l_entry);
+        }
+        // -------------------------------------------------
+        // return success
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
+}
+//! -----------------------------------------------------------------------------
+//! \details loads a category to user agent map into waflz
+//! \return  TODO
+//! \param   a_cat_map: a map of user agent to categories
+//! \param   a_cat_to_ua_map: the structure to load the values into
+//! -----------------------------------------------------------------------------
+int32_t engine::parse_company_category_entry(const rapidjson::Value& a_cat_map,
+                                             const std::string& a_company,
+                                             str_to_data_pkg_map_t& a_cat_to_ua_map,
+                                             unordered_str_set_t& a_categories_found,
+                                             ac& a_ua_to_data_ac)
+{
+        // -------------------------------------------------
+        // quick exit if value is wrong type
+        // -------------------------------------------------
+        if (!a_cat_map.IsObject())
+        {
+                WAFLZ_PERROR(m_err_msg, "invalid format of bot category map, value for 'categories' must be a map");
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // parse each entry
+        // -------------------------------------------------
+        for (auto i_t = a_cat_map.MemberBegin(); i_t != a_cat_map.MemberEnd(); ++i_t)
+        {
+                // -----------------------------------------
+                // get current entry name and value
+                // -----------------------------------------
+                const std::string& l_category = i_t->name.GetString();
+                const rapidjson::Value& l_val = i_t->value;
+                // -----------------------------------------
+                // quick exit if value is wrong type
+                // -----------------------------------------
+                if (!l_val.IsArray())
+                {
+                        WAFLZ_PERROR(m_err_msg,
+                                     "invalid format of value for entry '%s' in categories, value must be a list",
+                                     l_category.c_str());
+                        return WAFLZ_STATUS_ERROR;
+                }
+                // -----------------------------------------
+                // add category to set of found cats
+                // -----------------------------------------
+                a_categories_found.insert(l_category);
+                // -----------------------------------------
+                // loop through each category value
+                // -----------------------------------------
+                for (rapidjson::SizeType i = 0; i < l_val.Size(); ++i)
+                {
+                        // ---------------------------------
+                        // safety check
+                        // ---------------------------------
+                        if ( !l_val[i].IsString() )
+                        {
+                                WAFLZ_PERROR(m_err_msg, "invalid value in bot category entry list. expected a string.");
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                        // ---------------------------------
+                        // get token from array - skip if empty
+                        // ---------------------------------
+                        const std::string l_ua = l_val[i].GetString();
+                        if (l_ua.empty()) { continue; }
+                        // ---------------------------------
+                        // make data pkg and store into map
+                        // we use this so we can delete
+                        // the data later
+                        // ---------------------------------
+                        auto l_data_pkg = new cat_data_pkg_t(l_category, a_company);
+                        auto l_inserted = a_cat_to_ua_map.insert(std::make_pair(l_ua, l_data_pkg));
+                        if (!l_inserted.second)
+                        {
+                                WAFLZ_PERROR(m_err_msg, "duplicate entry for user-agent '%s' found\n", l_ua.c_str());
+                                delete l_data_pkg; l_data_pkg = NULL;
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                        // ---------------------------------
+                        // add user agent to ac with pointer
+                        // to the data pkg
+                        // ---------------------------------
+                        int32_t l_s = a_ua_to_data_ac.add(l_ua.c_str(), l_ua.length(), (void*) l_inserted.first->second);
+                        if (l_s != WAFLZ_STATUS_OK)
+                        {
+                                WAFLZ_PERROR(m_err_msg, "Failed to add '%s' to ac\n", l_ua.c_str());
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                }
+        }
+        // -------------------------------------------------
+        // we done :P
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
+}
+//! -----------------------------------------------------------------------------
+//! \details update known bots ip list
+//! \return  TODO
+//! \param   a_buf: json data
+//! \param   a_buf_len: size of json data
+//! -----------------------------------------------------------------------------
+int32_t engine::load_known_bot(const char* a_buf, uint32_t a_buf_len)
+{
+        // -------------------------------------------------
+        // parse
+        // -------------------------------------------------
+        rapidjson::Document* l_js = new rapidjson::Document();
+        rapidjson::ParseResult l_ok;
+        l_ok = l_js->Parse(a_buf, a_buf_len);
+        // -------------------------------------------------
+        // check that we parsed correctly
+        // -------------------------------------------------
+        if (!l_ok)
+        {
+                WAFLZ_PERROR(m_err_msg, "JSON parse error: %s (%d)",
+                             rapidjson::GetParseError_En(l_ok.Code()), (int)l_ok.Offset());
+                if (l_js) { delete l_js; l_js = NULL; }
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // check that we file is formatted correctly
+        // -------------------------------------------------
+        if (!l_js->IsObject())
+        {
+                WAFLZ_PERROR(m_err_msg, "invalid format of bot info file, must be an object/dict");
+                if (l_js) { delete l_js; l_js = NULL;}
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // parse each entry
+        // -------------------------------------------------
+        for (auto i_t = l_js->MemberBegin(); i_t != l_js->MemberEnd(); ++i_t)
+        {
+                // -----------------------------------------
+                // get current entry name and value
+                // -----------------------------------------
+                const std::string& l_name = i_t->name.GetString();
+                const rapidjson::Value& l_val = i_t->value;
+                // -----------------------------------------
+                // get or create known bot object for
+                // the current company
+                // -----------------------------------------
+                known_bot_info_t* l_current_comp_info = nullptr;
+                auto i_previous_entry = m_knb_info_map.find(l_name);
+                if ( i_previous_entry == m_knb_info_map.end() )
+                {
+                        auto l_new_entry = m_knb_info_map.insert(std::make_pair(l_name, new known_bot_info_t()));
+                        i_previous_entry = l_new_entry.first;
+                }
+                l_current_comp_info = i_previous_entry->second;
+                // -----------------------------------------
+                // sanity check
+                // -----------------------------------------
+                if (l_current_comp_info == nullptr)
+                {
+                        WAFLZ_PERROR(m_err_msg, "grabbed known bot info for company '%s' but it was empty", l_name.c_str());
+                        return WAFLZ_STATUS_ERROR;
+                }
+                // -----------------------------------------
+                // parse user-agents if given
+                // -----------------------------------------
+                if (l_val.HasMember("user_agents"))
+                {
+                        int32_t l_status = parse_string_array_to_ac(l_val["user_agents"], l_current_comp_info->m_user_agents);
+                        if (l_status != WAFLZ_STATUS_OK)
+                        {
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                }
+                // -----------------------------------------
+                // parse user-agents if given
+                // -----------------------------------------
+                if (l_val.HasMember("asns"))
+                {
+                        int32_t l_status = parse_uint_array_to_unorder_set(l_val["asns"], l_current_comp_info->m_asns);
+                        if (l_status != WAFLZ_STATUS_OK)
+                        {
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                }
+                // -----------------------------------------
+                // parse user-agents if given
+                // -----------------------------------------
+                if (l_val.HasMember("ips"))
+                {
+                        int32_t l_status = parse_string_array_to_nms(l_val["ips"], l_current_comp_info->m_ips);
+                        if (l_status != WAFLZ_STATUS_OK)
+                        {
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                }
+                // -----------------------------------------
+                // parse categories if given
+                // -----------------------------------------
+                if (m_use_knb_cat && l_val.HasMember("categories"))
+                {
+                        int32_t l_status = parse_company_category_entry(l_val["categories"],
+                                                                        l_name,
+                                                                        m_knb_ua_to_data_pkg,
+                                                                        m_knb_categories,
+                                                                        m_knb_tokens);
+                        if (l_status != WAFLZ_STATUS_OK)
+                        {
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                }
+        }
+        // -------------------------------------------------
+        // go through each company entry and finalize each
+        // ac object
+        // -------------------------------------------------
+        for (auto it = m_knb_info_map.begin(); it != m_knb_info_map.end(); it++)
+        {
+                // -------------------------------------------------
+                // get known bot info
+                // -------------------------------------------------
+                known_bot_info_t* l_entry = it->second;
+                if (l_entry == nullptr) { continue; }
+                // -------------------------------------------------
+                // finalize user-agents AC
+                // -------------------------------------------------
+                if ( l_entry->m_user_agents.finalize() != WAFLZ_STATUS_OK )
+                {
+                        WAFLZ_PERROR(m_err_msg, "%s", l_entry->m_user_agents.get_err_msg());
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // finalize known bots search AC
+        // -------------------------------------------------
+        if ( m_use_knb_cat && m_knb_tokens.finalize() != WAFLZ_STATUS_OK )
+        {
+                WAFLZ_PERROR(m_err_msg, "%s", m_knb_tokens.get_err_msg());
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // clean up
+        // -------------------------------------------------
+        if (l_js) { delete l_js; l_js = NULL;}
+        // -------------------------------------------------
+        // return success
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
 //! \details C binding for third party lib to create an engine obj

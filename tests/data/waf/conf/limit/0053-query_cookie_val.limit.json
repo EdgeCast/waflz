@@ -1,0 +1,38 @@
+{
+    "id": "query_cookie_val",
+    "customer_id":"0053",
+    "name": "args and cookie match",
+    "num": 2,
+    "count_hotfile": false,
+    "duration_sec":2,
+    "condition_groups":[
+        {
+            "conditions":[{
+                "op": {
+                    "is_negated":false,
+                    "type": "STREQ",
+                    "value": "present"
+                },
+                "target":{
+                    "type": "REQUEST_COOKIES",
+                    "value": "test"
+                }
+            },
+            {
+                "op": {
+                    "is_negated":false,
+                    "type": "STREQ",
+                    "value": "banana"
+                },
+                "target":{
+                    "type": "QUERY_ARG",
+                    "value": "exists"
+                }
+
+            }
+        ]
+        }
+    ],
+    "last_modified_date": "2019-04-18T19:48:25.142172Z"
+}
+

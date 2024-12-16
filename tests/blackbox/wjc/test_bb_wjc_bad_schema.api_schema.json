@@ -1,0 +1,14 @@
+{ 
+    "id": "A7QPbm0Z",
+    "api_gw_id": "qSMXE66R",
+    "customer_id": "0050",
+    "last_modified_date": "2019-04-18T19:48:25.142172Z",
+    "type": "object",
+    "properties": {
+        "favorite_numbers": {
+            "type":"array",
+            "minItems": "INCORRECT VALUE :("
+        }
+    },
+    "required": ["name", "Employee_ID"]
+}

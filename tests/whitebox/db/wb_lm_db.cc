@@ -63,6 +63,7 @@ TEST_CASE( "lmdb test", "[lmdb]" ) {
         SECTION("validate increment key and expiration") {
                 int32_t l_s;
                 ns_waflz::lm_db l_db;
+                bool l_dummy;
                 // get lmdb dir path
                 std::string l_db_dir;
                 get_lmdb_path(l_db_dir);
@@ -73,22 +74,22 @@ TEST_CASE( "lmdb test", "[lmdb]" ) {
                 l_s = l_db.init();
                 REQUIRE(l_s == WAFLZ_STATUS_OK);
                 int64_t l_result;
-                l_s = l_db.increment_key(l_result, MONKEY_KEY, 2000);
+                l_s = l_db.increment_key(l_result, MONKEY_KEY, 2000, false, l_dummy);
                 REQUIRE(l_s == WAFLZ_STATUS_OK);
                 REQUIRE(l_result == 1);
-                l_s = l_db.increment_key(l_result, MONKEY_KEY, 2000);
+                l_s = l_db.increment_key(l_result, MONKEY_KEY, 2000, false, l_dummy);
                 REQUIRE(l_s == WAFLZ_STATUS_OK);
                 REQUIRE(l_result == 2);
-                l_s = l_db.increment_key(l_result, BANANA_KEY, 4000);
+                l_s = l_db.increment_key(l_result, BANANA_KEY, 4000, false, l_dummy);
                 REQUIRE(l_s == WAFLZ_STATUS_OK);
                 REQUIRE(l_result == 1);
-                l_s = l_db.increment_key(l_result, BANANA_KEY, 4000);
+                l_s = l_db.increment_key(l_result, BANANA_KEY, 4000, false, l_dummy);
                 REQUIRE(l_s == WAFLZ_STATUS_OK);
                 REQUIRE(l_result == 2);
                 // sleep for 2 seconds, monkey key should have been expired
                 usleep(2000000);
                 // increment the test key, this should have cleared monkey key
-                l_s = l_db.increment_key(l_result, TEST_KEY, 1000);
+                l_s = l_db.increment_key(l_result, TEST_KEY, 1000, false, l_dummy);
                 REQUIRE(l_s == WAFLZ_STATUS_OK);
                 l_s = l_db.get_key(l_result, MONKEY_KEY, strlen(MONKEY_KEY));
                 REQUIRE(l_s == WAFLZ_STATUS_ERROR);
@@ -98,13 +99,14 @@ TEST_CASE( "lmdb test", "[lmdb]" ) {
                 // sleep for 2 more seconds, banana key should have been expired
                 usleep(2000000);
                 // increment the test key, this should have cleared banana key
-                l_s = l_db.increment_key(l_result, TEST_KEY, 1000);
+                l_s = l_db.increment_key(l_result, TEST_KEY, 1000, false, l_dummy);
                 l_s = l_db.get_key(l_result, BANANA_KEY, strlen(BANANA_KEY));
                 REQUIRE(l_s == WAFLZ_STATUS_ERROR);
         }
         SECTION("validate sweep db - test if sweeping deletes expired keys from db") {
                 int32_t l_s;
                 ns_waflz::lm_db l_db;
+                bool l_dummy;
                 // get lmdb dir path
                 std::string l_db_dir;
                 get_lmdb_path(l_db_dir);
@@ -115,10 +117,10 @@ TEST_CASE( "lmdb test", "[lmdb]" ) {
                 l_s = l_db.init();
                 REQUIRE(l_s == WAFLZ_STATUS_OK);
                 int64_t l_result;
-                l_s = l_db.increment_key(l_result, MONKEY_KEY, 2000);
+                l_s = l_db.increment_key(l_result, MONKEY_KEY, 2000, false, l_dummy);
                 REQUIRE(l_s == WAFLZ_STATUS_OK);
                 REQUIRE(l_result == 1);
-                l_s = l_db.increment_key(l_result, BANANA_KEY, 4000);
+                l_s = l_db.increment_key(l_result, BANANA_KEY, 4000, false, l_dummy);
                 REQUIRE(l_s == WAFLZ_STATUS_OK);
                 REQUIRE(l_result == 1);
                 // sweep db

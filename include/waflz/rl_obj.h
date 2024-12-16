@@ -100,6 +100,10 @@ protected:
         int32_t process_condition_group(bool &ao_matched,
                                         const waflz_pb::condition_group &a_cg,
                                         rqst_ctx *a_ctx);
+        int32_t process_condition_group_for_response(bool &ao_matched,
+                                        const waflz_pb::condition_group &a_cg,
+                                        resp_ctx *a_ctx);
+
         int32_t convertv1(waflz_pb::config& ao_config,
                           const waflz_pb::enforcer& a_enfcr);
         // -------------------------------------------------
@@ -121,6 +125,11 @@ private:
                         std::string &ao_buf,
                         const waflz_pb::condition_target_t &a_tgt,
                         rqst_ctx *a_ctx);
+        int32_t extract_from_response(const char **ao_data,
+                        uint32_t &ao_data_len,
+                        std::string &ao_buf,
+                        const waflz_pb::condition_target_t &a_tgt,
+                        resp_ctx *a_ctx);
         int32_t compile_op(::waflz_pb::op_t& ao_op);
 };
 //! ----------------------------------------------------------------------------

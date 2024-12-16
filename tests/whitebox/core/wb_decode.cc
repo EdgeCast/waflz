@@ -131,7 +131,9 @@ TEST_CASE( "test parse", "[parse]" ) {
                         char *l_buf = NULL;
                         uint32_t l_invalid_cnt = 0;
                         ns_waflz::arg_list_t l_arg_list;
+                        ns_waflz::data_unordered_map_t l_arg_map;
                         l_s = ns_waflz::parse_args(l_arg_list,
+                                                   l_arg_map,
                                                    l_invalid_cnt,
                                                    l_in,
                                                    strlen(l_in),

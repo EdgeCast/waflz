@@ -21,6 +21,31 @@ message event {
                 ACTION_PAUSE              = 8;
         }
         // -------------------------------------------------
+        // challenge status
+        // -------------------------------------------------
+        enum chal_status_t {
+                CHAL_STATUS_NONE = 0;
+                CHAL_STATUS_NO_TOKEN = 1;
+                CHAL_STATUS_IP_MISMATCH = 2;
+                CHAL_STATUS_UA_MISMATCH = 3;
+                CHAL_STATUS_TOKEN_EXPIRED = 4;
+                CHAL_STATUS_TOKEN_CORRUPTED = 5;
+                CHAL_STATUS_WRONG_ANSWER = 6;
+        }
+        // -------------------------------------------------
+        // captcha status
+        // -------------------------------------------------
+        enum captcha_status_t {
+                CAPTCHA_STATUS_NONE = 0;
+                CAPTCHA_ISSUED_NO_GOOGLE_TOKEN = 1;
+                CAPTCHA_FAILED_RESULT_BOT = 2;
+                CAPTCHA_FAILED_RESULT_ERROR = 3;
+                CAPTCHA_ECTOKEN_CORRUPTED = 6;
+                CAPTCHA_ECTOKEN_IP_MISMATCH = 7;
+                CAPTCHA_ECTOKEN_UA_MISMATCH = 8;
+                CAPTCHA_ECTOKEN_EXPIRED = 9;
+        }
+        // -------------------------------------------------
         // mirrors RULE_TYPE_X definitions in re.h        
         // -------------------------------------------------
         enum rule_type_t {
@@ -117,6 +142,13 @@ message event {
         optional string geoip_cc_sd = 78;
         optional string geoip_registered_country_code = 79;
         // -------------------------------------------------
+        // bot fields
+        // -------------------------------------------------
+        optional chal_status_t challenge_status = 80;
+        optional uint32 token_duration_sec = 81;
+        optional uint32 challenge_level = 82;
+        optional uint32 challenge_difficulty = 83;
+        // -------------------------------------------------
         // More geoip fields
         // -------------------------------------------------
         optional uint32 geoip_asn = 90;
@@ -156,11 +188,19 @@ message event {
         // -------------------------------------------------
         optional string rules_config_id = 228;
         optional string rules_config_name = 229;
+        // -------------------------------------------------
+        // bots config specific
+        // -------------------------------------------------
+        optional string bots_config_id = 230;
+        optional string bots_config_name = 231;
         optional string account_type = 232;
         optional string partner_id = 233;
         optional string response_header_name = 241;
         optional string ruleset_id = 242;
         optional string ruleset_version = 243;
+        optional string bot_manager_config_id = 244;
+        optional string bot_manager_config_name = 245;
+        optional string bot_tier = 246;
         // -------------------------------------------------
         // change/rev info about config
         // -------------------------------------------------
@@ -169,6 +209,23 @@ message event {
         // time taken by waf
         // -------------------------------------------------
         optional double waf_process_time_msec = 260;
+        // -------------------------------------------------
+        // bot metadata
+        // -------------------------------------------------
+        optional uint32 bot_score = 261;
+        optional string known_bot_type  = 262;
+        optional bool bot_event = 263;
+        optional enforcement.type_t bot_action = 264;
+        optional string bot_score_key = 265;
+        optional string known_bot_category = 266;
+        optional string bot_tags = 267;
+        optional uint32 customer_id = 268;
+        // -------------------------------------------------
+        // captcha details
+        // -------------------------------------------------
+        optional captcha_status_t captcha_status = 270;
+        optional float captcha_bot_score = 271;
+        optional string captcha_error_message = 272;
         // -------------------------------------------------
         // api_gw config specific
         // -------------------------------------------------
@@ -179,5 +236,16 @@ message event {
         optional string schema_config_id = 290;
         optional string schema_config_name = 291;
         optional string schema_error_offset = 292;
+        optional string schema_error_location = 293;
+        optional string body_schema_error_location = 294;
+        optional string jwt_error_reason = 295;
+        optional string jwt_failed_kid = 296;
 
+}
+//: ----------------------------------------------------------------------------
+//: Bot event
+//: ----------------------------------------------------------------------------
+message bot_event
+{
+      optional event event = 1;
 }

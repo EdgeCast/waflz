@@ -1,0 +1,1 @@
+<script>window.onload = function() {var val = {{BOT_PROB}};var tokenCookie = "__ecbmchid={{EC_TOKEN}}"+";path=/";var answerCookie = "__eccha="+val+";path=/";document.cookie = tokenCookie;document.cookie = answerCookie;location.reload();}</script>

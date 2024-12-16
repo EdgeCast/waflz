@@ -23,6 +23,11 @@
 		"accesslist": [],
 		"blacklist": []
 	},
+	"ja3": {
+		"whitelist": [],
+		"accesslist": [],
+		"blacklist": []
+	},
 	"user_agent": {
 		"whitelist": [],
 		"accesslist": [],

@@ -36,6 +36,7 @@
 "      \"id\": \"640b3c22-4b68-4b9c-b644-ada917411769AAFD\","\
 "      \"disabled\": false,"\
 "      \"start_epoch_msec\": 1582764295072,"\
+"      \"_reserved_match\": \"this_is__reserved_match\","\
 "      \"condition_groups\": ["\
 "        {"\
 "          \"conditions\": ["\
@@ -363,7 +364,7 @@ TEST_CASE( "enforcer test", "[enforcer]" ) {
                 //printf("err: %s\n", l_e.get_err_msg());
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 const waflz_pb::enforcement* l_enfx = NULL;
-                ns_waflz::rqst_ctx l_ctx(NULL, 0, NULL);
+                ns_waflz::rqst_ctx l_ctx(NULL, 0, 0, NULL);
                 // Verify match
                 l_ctx.m_uri.m_data = "/bananas/monkey";
                 l_ctx.m_uri.m_len = strlen("/bananas/monkey");
@@ -371,6 +372,8 @@ TEST_CASE( "enforcer test", "[enforcer]" ) {
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_enfx != NULL));
                 REQUIRE((l_enfx->id() == "caa9be38-35cf-465c-bf61-7e99f2eea30bAAFD"));
+                REQUIRE((l_ctx.m_limit != NULL));
+                REQUIRE((l_ctx.m_limit->_reserved_match() != "this_is__reserved_match"));
                 // Verify no match
                 l_ctx.m_uri.m_data = "/bonkers/monkey";
                 l_ctx.m_uri.m_len = sizeof("/bonkers/monkey");
@@ -388,7 +391,7 @@ TEST_CASE( "enforcer test", "[enforcer]" ) {
                 //printf("err: %s\n", l_e.get_err_msg());
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 const waflz_pb::enforcement* l_enfx = NULL;
-                ns_waflz::rqst_ctx l_ctx(NULL, 0, NULL);
+                ns_waflz::rqst_ctx l_ctx(NULL, 0, 0, NULL);
                 // -----------------------------------------
                 // add user-agent
                 // -----------------------------------------
@@ -427,7 +430,7 @@ TEST_CASE( "enforcer test", "[enforcer]" ) {
                 //printf("err: %s\n", l_e.get_err_msg());
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 const waflz_pb::enforcement* l_enfx = NULL;
-                ns_waflz::rqst_ctx l_ctx(NULL, 0, NULL);
+                ns_waflz::rqst_ctx l_ctx(NULL, 0, 0, NULL);
                 l_ctx.m_uri.m_data = "/bananas/monkey";
                 l_ctx.m_uri.m_len = strlen("/bananas/monkey");
                 l_s = l_e.process(&l_enfx, &l_ctx);
@@ -453,7 +456,7 @@ TEST_CASE( "enforcer test", "[enforcer]" ) {
                 //printf("err: %s\n", l_e.get_err_msg());
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 const waflz_pb::enforcement* l_enfx = NULL;
-                ns_waflz::rqst_ctx l_ctx(NULL, 0, NULL);
+                ns_waflz::rqst_ctx l_ctx(NULL, 0, 0, NULL);
                 // verify match
                 l_ctx.m_uri.m_data = "/bananas/monkey";
                 l_ctx.m_uri.m_len = strlen("/bananas/monkey");
@@ -480,7 +483,7 @@ TEST_CASE( "enforcer test", "[enforcer]" ) {
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 //NDBG_PRINT("l_e.get_pb(): %s\n", l_e.get_pb()->ShortDebugString().c_str());
                 const waflz_pb::enforcement* l_enfx = NULL;
-                ns_waflz::rqst_ctx l_ctx(NULL, 0, NULL);
+                ns_waflz::rqst_ctx l_ctx(NULL, 0, 0, NULL);
                 l_s = l_e.process(&l_enfx, &l_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_enfx != NULL));
@@ -500,7 +503,7 @@ TEST_CASE( "enforcer test", "[enforcer]" ) {
                 //printf("err: %s\n", l_e.get_err_msg());
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 const waflz_pb::enforcement* l_enfx = NULL;
-                ns_waflz::rqst_ctx l_ctx(NULL, 0, NULL);
+                ns_waflz::rqst_ctx l_ctx(NULL, 0, 0, NULL);
                 l_e.update_start_time();
                 // verify match
                 l_ctx.m_uri.m_data = "/bananas/monkey";
@@ -540,7 +543,7 @@ TEST_CASE( "enforcer test", "[enforcer]" ) {
                 l_s = l_e.load(GEO_CONFIG, sizeof(GEO_CONFIG));
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 const waflz_pb::enforcement* l_enfx = NULL;
-                ns_waflz::rqst_ctx l_ctx(NULL, 0, NULL);
+                ns_waflz::rqst_ctx l_ctx(NULL, 0, 0, NULL);
                 l_e.update_start_time();
                 // verify match
                 l_ctx.m_geo_data.m_geo_cn2.m_data = "US";

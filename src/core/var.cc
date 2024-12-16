@@ -56,6 +56,35 @@ static void get_matched(const_arg_list_t &ao_list,
                         bool a_is_key)
 {
         // -------------------------------------------------
+        // special check: if there is a var with no matches
+        // then every variables is added to the out list
+        // -------------------------------------------------
+        if ( a_var.match_size() == 0 )
+        {
+                for (arg_list_t::const_iterator i_k = a_list.begin();
+                    i_k != a_list.end();
+                    ++i_k)
+                {
+                        // ---------------------------------
+                        // append
+                        // ---------------------------------
+                        const_arg_t l_data;
+                        l_data.m_key = i_k->m_key;
+                        l_data.m_key_len = i_k->m_key_len;
+                        if (a_is_key)
+                        {
+                                l_data.m_val = i_k->m_key;
+                                l_data.m_val_len = i_k->m_key_len;
+                        }
+                        else
+                        {
+                                l_data.m_val = i_k->m_val;
+                                l_data.m_val_len = i_k->m_val_len;
+                        }
+                        ao_list.push_back(l_data);
+                }
+        }
+        // -------------------------------------------------
         // get negated fields
         // -------------------------------------------------
         typedef const ::waflz_pb::variable_t_match_t _m_t;
@@ -225,6 +254,35 @@ static void get_matched_const(const_arg_list_t &ao_list,
                               bool a_is_count,
                               bool a_is_key)
 {
+        // -------------------------------------------------
+        // special check: if there is a var with no matches
+        // then every variables is added to the out list
+        // -------------------------------------------------
+        if ( a_var.match_size() == 0 )
+        {
+                for (const_arg_list_t::const_iterator i_k = a_list.begin();
+                    i_k != a_list.end();
+                    ++i_k)
+                {
+                        // ---------------------------------
+                        // append
+                        // ---------------------------------
+                        const_arg_t l_data;
+                        l_data.m_key = i_k->m_key;
+                        l_data.m_key_len = i_k->m_key_len;
+                        if (a_is_key)
+                        {
+                                l_data.m_val = i_k->m_key;
+                                l_data.m_val_len = i_k->m_key_len;
+                        }
+                        else
+                        {
+                                l_data.m_val = i_k->m_val;
+                                l_data.m_val_len = i_k->m_val_len;
+                        }
+                        ao_list.push_back(l_data);
+                }
+        }
         // -------------------------------------------------
         // get negated fields
         // -------------------------------------------------
@@ -509,7 +567,25 @@ GET_VAR(REQUEST_LINE)
         // TODO -handle counts!
         // unconditional match
         // -------------------------------------------------
-        _ADD_VAR(a_ctx->m_line);
+        // -------------------------------------------------
+        // TODO optimize out creation of tmp list???
+        // -------------------------------------------------
+        const_arg_list_t l_list;
+        const_arg_t l_arg;
+        l_arg.m_key = a_ctx->m_line.m_data;
+        l_arg.m_key_len = a_ctx->m_line.m_len;
+        l_arg.m_val = NULL;
+        l_arg.m_val_len = 0;
+        l_list.push_back(l_arg);
+        // -------------------------------------------------
+        // process rtu matches
+        // -------------------------------------------------
+        get_matched_const(ao_list,
+                          ao_count,
+                          a_var,
+                          l_list,
+                          a_var.is_count(),
+                          true);
         return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
@@ -578,10 +654,24 @@ GET_VAR(REQUEST_FILENAME)
                 return WAFLZ_STATUS_ERROR;
         }
         // -------------------------------------------------
-        // TODO -handle counts!
-        // unconditional match
+        // TODO optimize out creation of tmp list???
         // -------------------------------------------------
-        _ADD_VAR(a_ctx->m_path);
+        const_arg_list_t l_list;
+        const_arg_t l_arg;
+        l_arg.m_key = a_ctx->m_path.m_data;
+        l_arg.m_key_len = a_ctx->m_path.m_len;
+        l_arg.m_val = NULL;
+        l_arg.m_val_len = 0;
+        l_list.push_back(l_arg);
+        // -------------------------------------------------
+        // process rtu matches
+        // -------------------------------------------------
+        get_matched_const(ao_list,
+                          ao_count,
+                          a_var,
+                          l_list,
+                          a_var.is_count(),
+                          true);
         return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
@@ -613,10 +703,24 @@ GET_VAR(QUERY_STRING)
                 return WAFLZ_STATUS_ERROR;
         }
         // -------------------------------------------------
-        // TODO -handle counts!
-        // unconditional match
+        // TODO optimize out creation of tmp list???
         // -------------------------------------------------
-        _ADD_VAR(a_ctx->m_query_str);
+        const_arg_list_t l_list;
+        const_arg_t l_arg;
+        l_arg.m_key = a_ctx->m_query_str.m_data;
+        l_arg.m_key_len = a_ctx->m_query_str.m_len;
+        l_arg.m_val = NULL;
+        l_arg.m_val_len = 0;
+        l_list.push_back(l_arg);
+        // -------------------------------------------------
+        // process rtu matches
+        // -------------------------------------------------
+        get_matched_const(ao_list,
+                          ao_count,
+                          a_var,
+                          l_list,
+                          a_var.is_count(),
+                          true);
         return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
@@ -1578,6 +1682,91 @@ GET_VAR(SD_ISO)
         return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
+//! \details: JA3
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+GET_VAR(JA3)
+{
+        if (!a_ctx)
+        {
+                return WAFLZ_STATUS_ERROR;
+        }
+        _ADD_VAR(a_ctx->m_virt_ssl_client_ja3_md5);
+        return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details: JA4
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+GET_VAR(JA4)
+{
+        if (!a_ctx)
+        {
+                return WAFLZ_STATUS_ERROR;
+        }
+        _ADD_VAR(a_ctx->m_virt_ssl_client_ja4);
+        return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details: JA4_A
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+GET_VAR(JA4_A)
+{
+        if (!a_ctx)
+        {
+                return WAFLZ_STATUS_ERROR;
+        }
+        _ADD_VAR(a_ctx->m_virt_ssl_client_ja4_a);
+        return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details: JA4_B
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+GET_VAR(JA4_B)
+{
+        if (!a_ctx)
+        {
+                return WAFLZ_STATUS_ERROR;
+        }
+        _ADD_VAR(a_ctx->m_virt_ssl_client_ja4_b);
+        return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details: JA4_A
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+GET_VAR(JA4_C)
+{
+        if (!a_ctx)
+        {
+                return WAFLZ_STATUS_ERROR;
+        }
+        _ADD_VAR(a_ctx->m_virt_ssl_client_ja4_c);
+        return WAFLZ_STATUS_OK;
+}
+GET_VAR(BOT_SCORE)
+{
+
+        if (!a_ctx)
+        {
+                return WAFLZ_STATUS_ERROR;
+        }
+        const_arg_t l_data;
+        l_data.m_key = "BOT_SCORE";
+        l_data.m_key_len = sizeof("BOT_SCORE") - 1;
+        l_data.m_val = "BOT_SCORE";
+        l_data.m_val_len = a_ctx->m_bot_score;
+        ao_list.push_back(l_data);
+        return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
 //! \details: TX
 //! \return:  TODO
 //! \param:   TODO
@@ -1897,6 +2086,12 @@ void init_var_cb_vector(void)
         INIT_GET_VAR(REMOTE_ASN);
         INIT_GET_VAR(GEO);
         INIT_GET_VAR(SD_ISO);
+        INIT_GET_VAR(JA3);
+        INIT_GET_VAR(BOT_SCORE);
+        INIT_GET_VAR(JA4);
+        INIT_GET_VAR(JA4_A);
+        INIT_GET_VAR(JA4_B);
+        INIT_GET_VAR(JA4_C);
 }
 void init_resp_var_cb_vector(void)
 {

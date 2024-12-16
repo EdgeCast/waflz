@@ -10,7 +10,7 @@
 //! ----------------------------------------------------------------------------
 //! includes
 //! ----------------------------------------------------------------------------
-#include "ac.h"
+#include "waflz/ac.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -44,6 +44,7 @@ typedef struct _node {
         uint32_t m_id;
 #endif
         std::string m_match_str;
+        void* m_data_pkg;
         bool m_last;
         struct _node *m_parent;
         struct _node *m_fail;
@@ -56,6 +57,7 @@ typedef struct _node {
                 m_id(),
 #endif
                 m_match_str(""),
+                m_data_pkg(nullptr),
                 m_last(false),
                 m_parent(NULL),
                 m_fail(NULL),
@@ -131,10 +133,48 @@ static node_t *edge_for_code(node_t *a_parent, char_t a_char)
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-static int32_t match_handler_find_first(ac *a_ac, void *a_data)
+static int32_t match_handler_find_first(ac *a_ac, node_t* a_current_node, void** a_data)
 {
         // non-zero return value will stop search
         return 1;
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+static int32_t get_data_from_first_node(ac *a_ac, node_t* a_current_node, void** a_data)
+{
+        // -------------------------------------------------
+        // return data package if exists
+        // -------------------------------------------------
+        if (a_current_node->m_data_pkg)
+        {
+                *a_data = a_current_node->m_data_pkg;
+        }
+        // -------------------------------------------------
+        // non-zero return value will stop search
+        // -------------------------------------------------
+        return 1;
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+static int32_t get_data_from_node(ac *a_ac, node_t* a_current_node, void** a_data)
+{
+        // -------------------------------------------------
+        // return data package if exists
+        // -------------------------------------------------
+        if (a_current_node->m_data_pkg)
+        {
+                *a_data = a_current_node->m_data_pkg;
+        }
+        // -------------------------------------------------
+        // non-zero return value will stop search
+        // -------------------------------------------------
+        return 0;
 }
 //! ----------------------------------------------------------------------------
 //! \details: displays all nodes recursively
@@ -316,7 +356,7 @@ ac::~ac()
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-int32_t ac::add(const char *a_buf, uint32_t a_len)
+int32_t ac::add(const char *a_buf, uint32_t a_len, void* a_data_pkg)
 {
         if(m_finalized)
         {
@@ -414,6 +454,8 @@ int32_t ac::add(const char *a_buf, uint32_t a_len)
                                 l_child->m_last = true;
                         }
                         l_child->m_match_str = std::string(l_buf,l_len);
+                        l_child->m_data_pkg = a_data_pkg;
+
                 }
                 // -----------------------------------------
                 // add node to parent
@@ -533,10 +575,15 @@ int32_t ac::finalize(void)
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-bool ac::find(const char *a_buf, uint32_t a_len, std::string& ao_str_match, match_cb_t a_cb, void *a_data,
+bool ac::find(const char *a_buf, uint32_t a_len, std::string& ao_str_match, match_cb_t a_cb, void** a_data,
               bool a_override_case_sensitive)
 {
         if(!m_finalized)
+        {
+                // TODO log error reason???
+                return false;
+        }
+        if(!a_len || !a_buf)
         {
                 // TODO log error reason???
                 return false;
@@ -587,7 +634,7 @@ bool ac::find(const char *a_buf, uint32_t a_len, std::string& ao_str_match, matc
                                 if(a_cb)
                                 {
                                         int32_t l_s;
-                                        l_s = a_cb(this, a_data);
+                                        l_s = a_cb(this, l_n, a_data);
                                         if(l_s)
                                         {
                                                 return true;
@@ -614,6 +661,25 @@ bool ac::find_first(const char *a_buf, uint32_t a_len, std::string& ao_str_match
 {
         return find(a_buf, a_len, ao_str_match, match_handler_find_first, NULL, a_override_case_sensitive);
 }
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+bool ac::find_first_with_data(const char *a_buf, uint32_t a_len, std::string& ao_str_match, void** a_data, bool a_override_case_sensitive)
+{
+        return find(a_buf, a_len, ao_str_match, get_data_from_first_node, a_data, a_override_case_sensitive);
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+bool ac::find_with_data(const char *a_buf, uint32_t a_len, std::string& ao_str_match, void** a_data, bool a_override_case_sensitive)
+{
+        return find(a_buf, a_len, ao_str_match, get_data_from_node, a_data, a_override_case_sensitive);
+}
+
 //! ----------------------------------------------------------------------------
 //! \details: TODO
 //! \return:  TODO

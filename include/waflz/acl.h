@@ -50,6 +50,7 @@ public:
         //: ------------------------------------------------
         const std::string& get_id(void) { return m_id; }
         const std::string& get_cust_id(void) { return m_cust_id; }
+        bool is_team_config(void) { return m_team_config; }
         const std::string& get_name(void) { return m_name; }
         //: ------------------------------------------------
         //:               S E T T E R S
@@ -108,6 +109,7 @@ private:
         // -------------------------------------------------
         std::string m_id;
         std::string m_cust_id;
+        bool m_team_config;
         std::string m_name;
         std::string m_resp_header_name;
         bool m_allow_anonymous_proxy;
@@ -135,6 +137,18 @@ private:
         stri_set_t m_sd_iso_whitelist;
         stri_set_t m_sd_iso_accesslist;
         stri_set_t m_sd_iso_blacklist;
+        // -------------------------------------------------
+        // ja3
+        // -------------------------------------------------
+        stri_set_t m_ja3_whitelist;
+        stri_set_t m_ja3_accesslist;
+        stri_set_t m_ja3_blacklist;
+        // -------------------------------------------------
+        // ja4
+        // -------------------------------------------------
+        stri_set_t m_ja4_whitelist;
+        stri_set_t m_ja4_accesslist;
+        stri_set_t m_ja4_blacklist;
         // -------------------------------------------------
         // url
         // -------------------------------------------------

@@ -1,0 +1,96 @@
+{
+  "access_settings": {
+    "url": {
+      "blacklist": [],
+      "whitelist": []
+    },
+    "user-agent": {
+      "blacklist": [],
+      "whitelist": []
+    },
+    "referer": {
+      "blacklist": [],
+      "whitelist": []
+    },
+    "ip": {
+      "blacklist": [],
+      "whitelist": []
+    },
+    "country": {
+      "blacklist": [],
+      "whitelist": []
+    },
+    "ignore_header": [],
+    "ignore_cookie": [],
+    "ignore_query_args": []
+  },
+  "name": "test",
+  "rule_target_updates": [],
+  "policies" : [
+      "REQUEST-905-COMMON-EXCEPTIONS.conf",
+      "REQUEST-911-METHOD-ENFORCEMENT.conf",
+      "REQUEST-913-SCANNER-DETECTION.conf",
+      "REQUEST-920-PROTOCOL-ENFORCEMENT.conf",
+      "REQUEST-921-PROTOCOL-ATTACK.conf",
+      "REQUEST-930-APPLICATION-ATTACK-LFI.conf",
+      "REQUEST-931-APPLICATION-ATTACK-RFI.conf",
+      "REQUEST-932-APPLICATION-ATTACK-RCE.conf",
+      "REQUEST-933-APPLICATION-ATTACK-PHP.conf",
+      "REQUEST-941-APPLICATION-ATTACK-XSS.conf",
+      "REQUEST-942-APPLICATION-ATTACK-SQLI.conf",
+      "REQUEST-943-APPLICATION-ATTACK-SESSION-FIXATION.conf",
+      "REQUEST-944-APPLICATION-ATTACK-JAVA.conf",
+      "REQUEST-949-BLOCKING-EVALUATION.conf"
+  ],
+  "rule_target_updates": [  ],
+  "custom_rules": [],
+  "custom_scores": [
+    {
+      "rule_id": "944130",
+      "score": 100
+    },
+    {
+      "rule_id_list": ["944120","944240"],
+      "score": 3
+    }
+  ],
+  "disabled_rules": [],
+  "general_settings": {
+    "disallowed_extensions": [],
+    "validate_utf8_encoding": true,
+    "allowed_request_content_types": [
+      "application/x-www-form-urlencoded",
+      "multipart/form-data",
+      "text/xml",
+      "application/xml",
+      "application/x-amf",
+      "application/json"
+    ],
+    "max_num_args": 4,
+    "total_arg_length": 64000,
+    "process_response_body": false,
+    "allowed_http_versions": [
+      "HTTP/1.1"
+    ],
+    "process_request_body": true,
+    "disallowed_headers": [],
+    "xml_parser": true,
+    "json_parser": true,
+    "arg_length": 8000,
+    "combined_file_sizes": 6291456,
+    "max_file_size": 6291456,
+    "paranoia_level": 2,
+    "anomaly_threshold": 4,
+    "response_header_name": "X-EC-Security-Audit",
+    "allowed_http_methods": [
+      "GET",
+      "POST"
+    ],
+    "arg_name_length": 1024,
+    "response_mime_types": []
+  },
+  "created_date": "5/28/2016 1:39:46 PM",
+  "id": "4291",
+  "ruleset_id": "OWASP-CRS-3.3",
+  "ruleset_version": "2020-08-05"
+}

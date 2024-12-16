@@ -39,6 +39,7 @@ class waf;
 class acl;
 class regex;
 class rqst_ctx;
+class resp_ctx;
 //! ----------------------------------------------------------------------------
 //! types
 //! ----------------------------------------------------------------------------
@@ -72,6 +73,7 @@ public:
         waf *get_waf(void) { return m_waf; }
         const std::string& get_id(void) { return m_id; }
         const std::string& get_cust_id(void) { return m_cust_id; }
+        bool is_team_config(void) { return m_team_config; }
         const std::string& get_name(void) { return m_name; }
         const std::string& get_resp_header_name(void) { return m_resp_header_name; }
         uint16_t get_action(void) { return m_action; }
@@ -107,6 +109,7 @@ private:
         // -------------------------------------------------
         std::string m_id;
         std::string m_cust_id;
+        bool m_team_config;
         std::string m_name;
         std::string m_resp_header_name;
         uint16_t m_action;

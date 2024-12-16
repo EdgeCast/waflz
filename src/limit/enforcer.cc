@@ -243,7 +243,25 @@ int32_t enforcer::load(const char *a_buf, uint32_t a_buf_len)
 //! \return  TODO
 //! \param   TODO
 //! ----------------------------------------------------------------------------
+int32_t enforcer::process(rqst_ctx *a_ctx)
+{
+        return this->process(NULL, a_ctx, false);
+}
+//! ----------------------------------------------------------------------------
+//! \details TODO
+//! \return  TODO
+//! \param   TODO
+//! ----------------------------------------------------------------------------
 int32_t enforcer::process(const waflz_pb::enforcement** ao_axn, rqst_ctx *a_ctx)
+{
+        return this->process(ao_axn, a_ctx, true);
+}
+//! ----------------------------------------------------------------------------
+//! \details TODO
+//! \return  TODO
+//! \param   TODO
+//! ----------------------------------------------------------------------------
+int32_t enforcer::process(const waflz_pb::enforcement** ao_axn, rqst_ctx *a_ctx, const bool a_use_enf)
 {
         if(!m_pb)
         {
@@ -255,13 +273,13 @@ int32_t enforcer::process(const waflz_pb::enforcement** ao_axn, rqst_ctx *a_ctx)
                 WAFLZ_PERROR(m_err_msg, "a_ctx == NULL");
                 return WAFLZ_STATUS_ERROR;
         }
-        if(!ao_axn)
+        if(!ao_axn && a_use_enf)
         {
                 WAFLZ_PERROR(m_err_msg, "ao_event == NULL");
                 return WAFLZ_STATUS_ERROR;
         }
         // init to null
-        *ao_axn = NULL;
+        if (a_use_enf) { *ao_axn = NULL; }
         waflz_pb::config &l_pb = *(m_pb);
         int32_t l_s;
         // -------------------------------------------------
@@ -323,8 +341,15 @@ int32_t enforcer::process(const waflz_pb::enforcement** ao_axn, rqst_ctx *a_ctx)
                         // if we have enforcement -we outtie!
                         if(i_limit.has_action())
                         {
-                                *ao_axn = &(i_limit.action());
-                                a_ctx->m_limit = i_r_ptr;
+                                if (a_use_enf)
+                                {
+                                        *ao_axn = &(i_limit.action());
+                                        a_ctx->m_limit = i_r_ptr;
+                                }
+                                else
+                                {
+                                        a_ctx->m_audit_limit = i_r_ptr;
+                                }
                                 goto done;
                         }
                         // else couldn't find enforcement -mark as disabled
@@ -360,9 +385,165 @@ int32_t enforcer::process(const waflz_pb::enforcement** ao_axn, rqst_ctx *a_ctx)
                         // if we have enforcement -we outtie!
                         if(i_limit.has_action())
                         {
-                                *ao_axn = &(i_limit.action());
-                                a_ctx->m_limit = i_r_ptr;
+                                if (a_use_enf)
+                                {
+                                        *ao_axn = &(i_limit.action());
+                                        a_ctx->m_limit = i_r_ptr;
+                                }
+                                else
+                                {
+                                        a_ctx->m_audit_limit = i_r_ptr;
+                                }
                                 //TRC_DEBUG("print enforcement%s\n", (*ao_axn)->DebugString().c_str());
+                                goto done;
+                        }
+                        // else couldn't find enforcement -mark as disabled
+                        i_limit.set_disabled(true);
+                        break;
+                }
+        }
+done:
+        return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details TODO
+//! \return  TODO
+//! \param   TODO
+//! ----------------------------------------------------------------------------
+int32_t enforcer::process_response(const waflz_pb::enforcement** ao_axn, resp_ctx *a_ctx, const bool a_use_enf)
+{
+        if(!m_pb)
+        {
+                WAFLZ_PERROR(m_err_msg, "m_pb == NULL");
+                return WAFLZ_STATUS_ERROR;
+        }
+        if(!a_ctx)
+        {
+                WAFLZ_PERROR(m_err_msg, "a_ctx == NULL");
+                return WAFLZ_STATUS_ERROR;
+        }
+        if(!ao_axn && a_use_enf)
+        {
+                WAFLZ_PERROR(m_err_msg, "ao_event == NULL");
+                return WAFLZ_STATUS_ERROR;
+        }
+        // init to null
+        if (a_use_enf) { *ao_axn = NULL; }
+        waflz_pb::config &l_pb = *(m_pb);
+        int32_t l_s;
+        // -------------------------------------------------
+        // cleanup disabled or expired
+        // -------------------------------------------------
+        l_s = limit_sweep(l_pb);
+        if(l_s != WAFLZ_STATUS_OK)
+        {
+                // TODO log error reason
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // limits ...
+        // -------------------------------------------------
+        for(int i_r = 0; i_r < m_pb->limits_size(); ++i_r)
+        {
+                waflz_pb::limit *i_r_ptr = m_pb->mutable_limits(i_r);
+                if(!i_r_ptr)
+                {
+                        // TODO log error reason
+                        return WAFLZ_STATUS_ERROR;
+                }
+                waflz_pb::limit &i_limit = *i_r_ptr;
+                // -----------------------------------------
+                // disabled???
+                // -----------------------------------------
+                if(i_limit.has_disabled() &&
+                   i_limit.disabled())
+                {
+                        continue;
+                }
+                // -----------------------------------------
+                // check scope
+                // -----------------------------------------
+                if(i_limit.has_scope())
+                {
+                        bool l_match = false;
+                        l_s = in_scope_response(l_match, i_limit.scope(), a_ctx);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                // TODO log error reason
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                        if(!l_match)
+                        {
+                                continue;
+                        }
+                }
+                // -----------------------------------------
+                // match-less limits...
+                // -----------------------------------------
+                if(i_limit.condition_groups_size() == 0)
+                {
+                        // ---------------------------------
+                        // *************MATCH***************
+                        // ---------------------------------
+                        //TRC_DEBUG("Matched enforcement limit completely!");
+                        // find enforcement...
+                        // if we have enforcement -we outtie!
+                        if(i_limit.has_action())
+                        {
+                                if (a_use_enf)
+                                {
+                                        *ao_axn = &(i_limit.action());
+                                        a_ctx->m_limit = i_r_ptr;
+                                }
+                                else
+                                {
+                                        a_ctx->m_audit_limit = i_r_ptr;
+                                }
+                                goto done;
+                        }
+                        // else couldn't find enforcement -mark as disabled
+                        i_limit.set_disabled(true);
+                        continue;
+                }
+                //TRC_DEBUG("limits[%d]\n", i_r);
+                // -----------------------------------------
+                // limits
+                // -----------------------------------------
+                // ================= O R ===================
+                // -----------------------------------------
+                for(int i_cg = 0; i_cg < i_limit.condition_groups_size(); ++i_cg)
+                {
+                        const waflz_pb::condition_group &l_cg = i_limit.condition_groups(i_cg);
+                        bool l_matched = false,
+                        l_s = process_condition_group_for_response(l_matched,
+                                                      l_cg,
+                                                      a_ctx);
+                        //TRC_DEBUG("limit: %d --match: %d --matched: %d\n", i_r, i_ms, l_matched);
+                        if(l_s != WAFLZ_STATUS_OK)
+                        {
+                                return WAFLZ_STATUS_ERROR;
+                        }
+                        if(!l_matched)
+                        {
+                                continue;
+                        }
+                        // ---------------------------------
+                        // **************MATCH**************
+                        // ---------------------------------
+                        //TRC_DEBUG("limit: %d --match: %d --enf: %p\n", i_r, i_ms, *ao_axn);
+                        // if we have enforcement -we outtie!
+                        if(i_limit.has_action())
+                        {
+                                if (a_use_enf)
+                                {
+                                        *ao_axn = &(i_limit.action());
+                                        a_ctx->m_limit = i_r_ptr;
+                                }
+                                else
+                                {
+                                        a_ctx->m_audit_limit = i_r_ptr;
+                                }
+                                // TRC_DEBUG("print enforcement%s\n", (*ao_axn)->DebugString().c_str());
                                 goto done;
                         }
                         // else couldn't find enforcement -mark as disabled

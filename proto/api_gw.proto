@@ -1,0 +1,91 @@
+syntax = "proto2";
+package waflz_pb;
+import "scope.proto";
+//: ----------------------------------------------------------------------------
+//: api gateway
+//: ----------------------------------------------------------------------------
+message api_gw
+{
+        // -------------------------------------------------
+        // properties
+        // -------------------------------------------------
+        optional string id = 1;
+        optional string name = 2;
+        optional string customer_id = 3;
+        optional string last_modified_date = 4;
+        optional string last_modified_by = 5;
+        optional bool team_config = 6;
+        optional bool ignore_response = 7;
+        // -------------------------------------------------
+        // rules
+        // -------------------------------------------------
+        repeated api_rule rules = 50;
+}
+// -------------------------------------------------
+//  token types. eg:jwt, oauth etc
+// -------------------------------------------------
+enum token_type_t
+{
+       TOKEN_NONE = 0;
+       JWT = 1;
+}
+// -------------------------------------------------
+//  supported algorithms
+// -------------------------------------------------
+enum alg_types_t
+{
+        ALG_NONE = 0;
+        RS256 = 1;
+}
+// -------------------------------------------------
+//  json web key 
+// -------------------------------------------------
+message jwk
+{
+        // Common fields for both ES and RSA
+        optional string kty = 1;
+        optional string use = 2;
+        optional string kid = 3;
+        optional alg_types_t alg = 4;
+        // EC fields
+        optional string x = 5;
+        optional string y = 6;
+        // RSA fields
+        optional string e = 7;
+        optional string n = 8;
+        // X509 chain info
+        optional string x5t = 9;
+        repeated string x5c = 10;
+}
+// -------------------------------------------------
+//  json web key set
+// -------------------------------------------------
+message credentials
+{
+        repeated jwk keys = 1;  
+}
+// -------------------------------------------------
+//  json web token fields
+// -------------------------------------------------
+message jwt
+{
+      optional token_type_t token_type = 1;
+      optional string name = 2;
+      optional credentials jwks = 3;
+      optional bool allow_absent_token = 4;
+}
+// -------------------------------------------------
+// rule message
+// -------------------------------------------------
+message api_rule
+{
+        optional string id = 1;
+        optional string name = 2;
+        repeated string methods = 3;
+        optional op_t path = 4;
+        optional string schema_id = 5;
+        optional uint32 response = 6;
+        optional jwt token = 7;
+        optional uint64 _schema_reserved = 50;
+
+}

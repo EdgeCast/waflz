@@ -1,0 +1,8 @@
+{
+	"id": "response",
+	"customer_id":"0050",
+	"num": 2,
+	"duration_sec":2,
+	"last_modified_date": "2019-04-18T19:48:25.142172Z",
+	"keys": ["IP", "STATUS_CODE:400-499,516"]
+}

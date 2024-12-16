@@ -1,0 +1,175 @@
+{
+  "directive": [
+    {
+      "sec_rule": {
+        "action": {
+          "action_type": "BLOCK",
+          "id": "77000101",
+          "msg": "Request User-Agent is bots",
+          "phase": 2,
+          "auditlog": true,
+          "bot_action":"CUSTOM_RESPONSE",
+          "setvar": [
+            {
+              "op": "INCREMENT",
+              "scope": "TX",
+              "val": "%{tx.warning_anomaly_score}",
+              "var": "anomaly_score_pl1"
+            }
+          ],
+          "t": [
+            "NONE"
+          ]
+        },
+        "operator": {
+          "is_negated": false,
+          "is_regex": false,
+          "type": "CONTAINS",
+          "value": "bot-testing"
+        },
+        "variable": [
+          {
+            "is_count": false,
+            "match": [
+              {
+                "is_negated": false,
+                "is_regex": false,
+                "value": "User-Agent"
+              }
+            ],
+            "type": "REQUEST_HEADERS"
+          }
+        ]
+      }
+    },
+    {
+      "sec_rule": {
+        "action": {
+          "action_type": "BLOCK",
+          "id": "77000102",
+          "msg": "Request User-Agent is bots",
+          "phase": 2,
+          "auditlog": true,
+          "bot_action":"BLOCK_REQUEST",
+          "setvar": [
+            {
+              "op": "INCREMENT",
+              "scope": "TX",
+              "val": "%{tx.warning_anomaly_score}",
+              "var": "anomaly_score_pl1"
+            }
+          ],
+          "t": [
+            "NONE"
+          ]
+        },
+        "operator": {
+          "is_negated": false,
+          "is_regex": false,
+          "type": "CONTAINS",
+          "value": "bot-blocking"
+        },
+        "variable": [
+          {
+            "is_count": false,
+            "match": [
+              {
+                "is_negated": false,
+                "is_regex": false,
+                "value": "User-Agent"
+              }
+            ],
+            "type": "REQUEST_HEADERS"
+          }
+        ]
+      }
+    },
+    {
+      "sec_rule": {
+        "action": {
+          "action_type": "BLOCK",
+          "id": "77000102",
+          "msg": "Request User-Agent is bots",
+          "phase": 2,
+          "auditlog": true,
+          "bot_action":"ALERT",
+          "setvar": [
+            {
+              "op": "INCREMENT",
+              "scope": "TX",
+              "val": "%{tx.warning_anomaly_score}",
+              "var": "anomaly_score_pl1"
+            }
+          ],
+          "t": [
+            "NONE"
+          ]
+        },
+        "operator": {
+          "is_negated": false,
+          "is_regex": false,
+          "type": "CONTAINS",
+          "value": "bot-alert"
+        },
+        "variable": [
+          {
+            "is_count": false,
+            "match": [
+              {
+                "is_negated": false,
+                "is_regex": false,
+                "value": "User-Agent"
+              }
+            ],
+            "type": "REQUEST_HEADERS"
+          }
+        ]
+      }
+    },
+    {
+      "sec_rule": {
+          "variable": [
+              {
+                  "type": "BOT_SCORE",
+                  "is_count": false
+              }
+          ],
+          "operator": {
+              "type": "GE",
+              "value": "50",
+              "is_regex": false,
+              "is_negated": false
+          },
+          "action": {
+              "id": "960009",
+              "msg": "bot score is too high",
+              "action_type": "BLOCK",
+              "phase": 1,
+              "setvar": [
+                  {
+                      "scope": "TX",
+                      "var": "msg",
+                      "op": "ASSIGN",
+                      "val": "%{rule.msg}"
+                  },
+                  {
+                    "op": "INCREMENT",
+                    "scope": "TX",
+                    "val": "%{tx.warning_anomaly_score}",
+                    "var": "anomaly_score_pl1"
+                  }
+              ],
+              "t": [
+                  "NONE"
+              ]
+          },
+          "hidden": false
+      }
+    }
+  ],
+  "ruleset_id": "OWASP-CRS-3.3",
+  "ruleset_version": "2020-08-05",
+  "customer_id": "0052",
+  "last_modified_date": "2019-04-18T19:48:25.142172Z",
+  "id": "WACKR4"
+}

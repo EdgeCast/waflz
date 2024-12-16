@@ -1,0 +1,51 @@
+{
+  "directive": [
+    {
+      "sec_rule": {
+        "action": {
+          "action_type": "BLOCK",
+          "id": "77000101",
+          "msg": "Request User-Agent is captcha-testing",
+          "phase": 2,
+          "auditlog": true,
+          "bot_action":"RECAPTCHA",
+          "setvar": [
+            {
+              "op": "INCREMENT",
+              "scope": "TX",
+              "val": "%{tx.warning_anomaly_score}",
+              "var": "anomaly_score_pl1"
+            }
+          ],
+          "t": [
+            "NONE"
+          ]
+        },
+        "operator": {
+          "is_negated": false,
+          "is_regex": false,
+          "type": "STREQ",
+          "value": "captcha-testing"
+        },
+        "variable": [
+          {
+            "is_count": false,
+            "match": [
+              {
+                "is_negated": false,
+                "is_regex": false,
+                "value": "User-Agent"
+              }
+            ],
+            "type": "REQUEST_HEADERS"
+          }
+        ]
+      }
+    }
+  ],
+  "ruleset_id": "OWASP-CRS-3.3",
+  "ruleset_version": "2020-08-05",
+  "customer_id": "0052",
+  "last_modified_date": "2019-04-18T19:48:25.142172Z",
+  "id": "89W3CPRu"
+}

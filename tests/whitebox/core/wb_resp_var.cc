@@ -15,6 +15,7 @@
 #include "waflz/resp_ctx.h"
 #include "core/var.h"
 #include "support/ndebug.h"
+#include "waflz/geoip2_mmdb.h"
 #include <string.h>
 #include <unistd.h>
 //! ----------------------------------------------------------------------------
@@ -188,8 +189,26 @@ static int32_t get_resp_header_w_idx_cb(const char **ao_key,
 //! parse
 //! ----------------------------------------------------------------------------
 TEST_CASE( "test var", "[var]" ) {
+        char l_cwd[1024];
+        if(getcwd(l_cwd, sizeof(l_cwd)) != NULL)
+        {
+            //fprintf(stdout, "Current working dir: %s\n", l_cwd);
+        }
+        std::string l_geoip2_city_file = l_cwd;
+        std::string l_geoip2_asn_file = l_cwd;
+        l_geoip2_city_file += "/../../../../tests/data/waf/db/GeoLite2-City.mmdb";
+        l_geoip2_asn_file += "/../../../../tests/data/waf/db/GeoLite2-ASN.mmdb";
+        // -------------------------------------------------
+        // init geodb
+        // -------------------------------------------------
+        ns_waflz::geoip2_mmdb *l_geoip2_mmdb = new ns_waflz::geoip2_mmdb();
+        int32_t l_s;
+        l_s = l_geoip2_mmdb->init(l_geoip2_city_file, l_geoip2_asn_file);
+        REQUIRE((l_s == WAFLZ_STATUS_OK));
+        // -------------------------------------------------
+        // init other stuff
+        // -------------------------------------------------
         ns_waflz::init_resp_var_cb_vector();
-        
         static ns_waflz::resp_ctx_callbacks s_callbacks = {
                 get_resp_local_addr_cb,
                 get_resp_host_cb,
@@ -208,8 +227,8 @@ TEST_CASE( "test var", "[var]" ) {
                 get_rqst_src_addr_cb,
                 NULL   //get_rqst_uuid_cb
         };
-        ns_waflz::resp_ctx *l_resp_ctx = new ns_waflz::resp_ctx(NULL, 1024, &s_callbacks);
-        l_resp_ctx->init_phase_3();
+        ns_waflz::resp_ctx *l_resp_ctx = new ns_waflz::resp_ctx(NULL, 1024, 1024, &s_callbacks, -1, NULL);
+        l_resp_ctx->init_phase_3(*l_geoip2_mmdb);
         l_resp_ctx->init_phase_4();
         // -------------------------------------------------
         // RESPONSE_HEADERS
@@ -672,4 +691,5 @@ TEST_CASE( "test var", "[var]" ) {
                 if(l_var) { delete l_var; l_var = NULL; }
         }
         if(l_resp_ctx) { delete l_resp_ctx; l_resp_ctx = NULL; }
+        if(l_geoip2_mmdb) { delete l_geoip2_mmdb; l_geoip2_mmdb = NULL; }
 }

@@ -101,6 +101,12 @@ int32_t sx_acl::init(void)
                 }
                 return STATUS_ERROR;
         }
+        if(l_buf)
+        {
+                free(l_buf);
+                l_buf = NULL;
+                l_buf_len = 0;
+        }
         return STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
@@ -127,7 +133,7 @@ ns_is2::h_resp_t sx_acl::handle_rqst(waflz_pb::enforcement **ao_enf,
         // process profile
         // -------------------------------------------------
         bool l_whitelist = false;
-        l_ctx = new ns_waflz::rqst_ctx((void *)&a_session, DEFAULT_BODY_SIZE_MAX, m_callbacks, false, false);
+        l_ctx = new ns_waflz::rqst_ctx((void *)&a_session, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, m_callbacks, false, false);
         l_s = m_acl->process(&l_event, l_whitelist, &a_session, &l_ctx);
         if(l_s != WAFLZ_STATUS_OK)
         {

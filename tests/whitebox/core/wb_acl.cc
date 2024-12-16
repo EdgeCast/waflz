@@ -89,6 +89,16 @@ static int32_t get_rqst_method_cb(const char **a_data, uint32_t *a_len, void *a_
         return 0;
 }
 //! ----------------------------------------------------------------------------
+//! get_rqst_ja3_md5
+//! ----------------------------------------------------------------------------
+static const char *s_ja3 = "253714f62c0a1e6869fe8ba6a45a0588";
+static int32_t get_rqst_ja3_md5(const char **a_data, uint32_t *a_len, void *a_ctx)
+{
+        *a_data = s_ja3;
+        *a_len = strlen(s_ja3);
+        return 0;
+}
+//! ----------------------------------------------------------------------------
 //! get_rqst_header_w_idx_cb
 //! ----------------------------------------------------------------------------
 #if 0
@@ -260,6 +270,14 @@ TEST_CASE( "acl test", "[acl]" )
                 l_ax_ctyl->add_whitelist("JP");
                 // *****************************************
                 // -----------------------------------------
+                // ja3 settings
+                // -----------------------------------------
+                // *****************************************
+                ::waflz_pb::acl_lists_t* l_ax_ja3 = l_pb->mutable_ja3();
+                l_ax_ja3->add_blacklist("13076cd512934b475069096255d1210b");
+                l_ax_ja3->add_whitelist("473cd7cb9faa642487833865d516e578");
+                // *****************************************
+                // -----------------------------------------
                 // subdivision settings
                 // -----------------------------------------
                 // *****************************************
@@ -371,7 +389,8 @@ TEST_CASE( "acl test", "[acl]" )
                         NULL, //get_rqst_bytes_out_cb,
                         NULL, //get_rqst_bytes_in_cb,
                         NULL, //get_rqst_uuid_cb,
-                        NULL //get_cust_id_cb
+                        NULL, //get_cust_id_cb
+                        get_rqst_ja3_md5
                 };
                 void *l_ctx = NULL;
                 waflz_pb::event *l_event = NULL;
@@ -385,7 +404,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist
                 // -----------------------------------------
                 s_ip = "243.49.2.7";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 bool l_wl = false;
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
@@ -400,7 +419,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist cidr
                 // -----------------------------------------
                 s_ip = "212.43.8.7";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -413,7 +432,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist
                 // -----------------------------------------
                 s_ip = "200.162.133.3";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE(l_wl == true);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
@@ -423,7 +442,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist cidr
                 // -----------------------------------------
                 s_ip = "199.167.1.17";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE(l_wl == true);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
@@ -433,7 +452,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist included in blacklist
                 // -----------------------------------------
                 s_ip = "199.167.1.1";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE(l_wl == true);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
@@ -448,7 +467,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist
                 // -----------------------------------------
                 s_ip = "45.249.212.124";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 //if(l_event) NDBG_PRINT("event: %s\n", l_event->DebugString().c_str());
@@ -462,12 +481,47 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist
                 // -----------------------------------------
                 s_ip = "202.32.115.5";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event == NULL));
                 if(l_rqst_ctx) { delete l_rqst_ctx; l_rqst_ctx = NULL; }
-                 // *****************************************
+                // -----------------------------------------
+                // revert
+                // -----------------------------------------
+                s_ip = "172.217.4.142";
+                // *****************************************
+                // -----------------------------------------
+                //         J A 3   T E S T
+                // -----------------------------------------
+                // *****************************************
+                // -----------------------------------------
+                // validate blacklist
+                // -----------------------------------------
+                s_ja3 = "13076cd512934b475069096255d1210b";
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
+                l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
+                //if(l_event) NDBG_PRINT("event: %s\n", l_event->DebugString().c_str());
+                REQUIRE((l_event->sub_event_size() >= 1));
+                REQUIRE((l_event->sub_event(0).has_rule_msg()));
+                REQUIRE((l_event->sub_event(0).rule_msg() == "Blacklist Ja3 match"));
+                if(l_rqst_ctx) { delete l_rqst_ctx; l_rqst_ctx = NULL; }
+                if(l_event) { delete l_event; l_event = NULL; }
+                // -----------------------------------------
+                // validate whitelist
+                // -----------------------------------------
+                s_ja3 = "473cd7cb9faa642487833865d516e578";
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
+                l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
+                REQUIRE((l_s == WAFLZ_STATUS_OK));
+                REQUIRE((l_event == NULL));
+                if(l_rqst_ctx) { delete l_rqst_ctx; l_rqst_ctx = NULL; }
+                if(l_event) { delete l_event; l_event = NULL; }
+                // -----------------------------------------
+                // reset
+                // -----------------------------------------
+                s_ja3 = "253714f62c0a1e6869fe8ba6a45a0588";
+                // *****************************************
                 // -----------------------------------------
                 //         S U B D I V I S I O N   T E S T
                 // -----------------------------------------
@@ -476,7 +530,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist
                 // -----------------------------------------
                 s_ip = "80.88.90.86";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 //if(l_event) NDBG_PRINT("event: %s\n", l_event->DebugString().c_str());
@@ -490,7 +544,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist
                 // -----------------------------------------
                 s_ip = "27.7.255.255";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event == NULL));
@@ -504,7 +558,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist
                 // -----------------------------------------
                 s_ip = "160.153.43.133";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 //if(l_event) NDBG_PRINT("event: %s\n", l_event->DebugString().c_str());
@@ -518,7 +572,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist
                 // -----------------------------------------
                 s_ip = "72.21.92.7";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event == NULL));
@@ -536,7 +590,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist
                 // -----------------------------------------
                 s_uri = "/login-confirm/index.html";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -550,7 +604,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist regex
                 // -----------------------------------------
                 s_uri = "/banana/monkey.html";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -564,7 +618,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist
                 // -----------------------------------------
                 s_uri = "/chickenkiller/kill_chickenzz.html";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event == NULL));
@@ -583,7 +637,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist
                 // -----------------------------------------
                 s_header_user_agent = "cats are really cool dude";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -597,7 +651,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist regex
                 // -----------------------------------------
                 s_header_user_agent = "curl/7.47.0";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -611,7 +665,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist
                 // -----------------------------------------
                 s_header_user_agent = "monkeys luv bananas";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE(l_wl == true);
@@ -630,7 +684,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist
                 // -----------------------------------------
                 s_header_referer = "bad reefer";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -644,7 +698,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist regex
                 // -----------------------------------------
                 s_header_referer = "really/bad/reefer";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -658,7 +712,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist
                 // -----------------------------------------
                 s_header_referer = "monkeys luv referers";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE(l_wl == true);
@@ -677,7 +731,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist key
                 // -----------------------------------------
                 s_header_cookie = "__cookie_a=a_value; wonky_key=b_value; __cookie_c=c_value;";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -691,7 +745,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist value
                 // -----------------------------------------
                 s_header_cookie = "__cookie_a=a_value; __cookie_b=wonky_value; __cookie_c=c_value;";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -705,7 +759,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate blacklist regex
                 // -----------------------------------------
                 s_header_cookie = "__cookie_a=a_value; bad_7_key=b_value; __cookie_c=c_value;";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -719,7 +773,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate whitelist
                 // -----------------------------------------
                 s_header_cookie = "__cookie_a=a_value; monkeys_cookie=b_value; __cookie_c=c_value;";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE(l_wl == true);
@@ -738,7 +792,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate block
                 // -----------------------------------------
                 s_method = "HEAD";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -754,7 +808,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // -----------------------------------------
                 s_method = "GET";
                 s_host = "www.google.com";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event == NULL));
@@ -774,7 +828,7 @@ TEST_CASE( "acl test", "[acl]" )
                 s_header_content_type = "garbage type";
                 s_header_content_length = "120";
                 s_method = "POST";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -791,7 +845,7 @@ TEST_CASE( "acl test", "[acl]" )
                 s_method = "GET";
                 s_host = "www.google.com";
                 s_header_content_length = NULL;
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event == NULL));
@@ -802,7 +856,7 @@ TEST_CASE( "acl test", "[acl]" )
                 s_method = "OPTIONS";
                 s_host = "www.google.com";
                 s_header_content_length = NULL;
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event == NULL));
@@ -823,7 +877,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // validate block
                 // -----------------------------------------
                 s_uri = "my/path/is/abc.def.php";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -839,7 +893,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // -----------------------------------------
                 s_host = "www.google.com";
                 s_uri = "my/path/is/abc.html";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 //if(l_event) NDBG_PRINT("event: %s\n", l_event->DebugString().c_str());
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
@@ -863,7 +917,7 @@ TEST_CASE( "acl test", "[acl]" )
                 s_method = "POST";
                 s_header_content_length = "1048577";
                 NDBG_PRINT("FILE SIZE CHECK TEST\n");
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -880,7 +934,7 @@ TEST_CASE( "acl test", "[acl]" )
                 s_header_content_type = "text/xml";
                 s_header_content_length = "120";
                 s_host = "www.google.com";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event == NULL));
@@ -901,7 +955,7 @@ TEST_CASE( "acl test", "[acl]" )
                 // -----------------------------------------
                 s_test_header = "test";
                 s_host = "www.google.com";
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event != NULL));
@@ -917,7 +971,7 @@ TEST_CASE( "acl test", "[acl]" )
                 s_method = "GET";
                 s_host = "www.google.com";
                 s_test_header = NULL;
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 l_s = l_acl->process(&l_event, l_wl, l_ctx, &l_rqst_ctx);
                 REQUIRE((l_s == WAFLZ_STATUS_OK));
                 REQUIRE((l_event == NULL));
@@ -939,7 +993,7 @@ TEST_CASE( "acl test", "[acl]" )
                 s_method = "GET";
                 s_host = "www.google.com";
                 s_test_header = NULL;
-                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, &s_callbacks);
+                l_rqst_ctx = new ns_waflz::rqst_ctx(l_ctx, DEFAULT_BODY_SIZE_MAX, DEFAULT_BODY_API_SEC_SIZE_MAX, &s_callbacks);
                 // -----------------------------------------
                 // fake proxy but allow anony
                 // -----------------------------------------

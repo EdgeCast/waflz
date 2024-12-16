@@ -1,0 +1,32 @@
+{
+    "id": "csfile",
+    "customer_id": "0050",
+    "last_modified_date": "2023-10-23T19:48:25.142172Z",
+    "headers": [
+        {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'none'; img-src: 'self'",
+            "overwrite": true,
+            "enforce": true
+        },
+        {
+            "key": "Content-Security-Policy-Report-Only",
+            "value": "font-src https:;",
+            "overwrite": true,
+            "enforce": true
+        },
+        {
+            "key": "Sec-Fetch-Mode",
+            "value": "no-cors",
+            "overwrite": false,
+            "enforce": true
+        },
+        {
+            "key": "ghost",
+            "value": "wont exist",
+            "overwrite": false,
+            "enforce": false
+        }
+
+    ]
+}

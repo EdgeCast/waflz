@@ -47,7 +47,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Waflz'
-copyright = '2022, Reed Morrison, Devender Singh'
+copyright = '2020, Reed Morrison, Devender Singh'
 author = 'Reed Morrison, Devender Singh'
 
 # The version info for the project you're documenting, acts as replacement for

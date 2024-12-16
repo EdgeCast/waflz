@@ -14,7 +14,6 @@
 #include "op/regex.h"
 #include "waflz/engine.h"
 #include "waflz/string_util.h"
-#include "op/nms.h"
 #include "jspb/jspb.h"
 #include "waflz/def.h"
 #include "waflz/rqst_ctx.h"
@@ -77,6 +76,7 @@ acl::acl(engine& a_engine):
         m_pb(NULL),
         m_id(),
         m_cust_id(),
+        m_team_config(false),
         m_name(),
         m_resp_header_name(),
         m_allow_anonymous_proxy(true),
@@ -92,6 +92,12 @@ acl::acl(engine& a_engine):
         m_sd_iso_whitelist(),
         m_sd_iso_accesslist(),
         m_sd_iso_blacklist(),
+        m_ja3_whitelist(),
+        m_ja3_accesslist(),
+        m_ja3_blacklist(),
+        m_ja4_whitelist(),
+        m_ja4_accesslist(),
+        m_ja4_blacklist(),
         m_url_rx_whitelist(NULL),
         m_url_rx_accesslist(NULL),
         m_url_rx_blacklist(NULL),
@@ -148,6 +154,7 @@ int32_t acl::load(const char *a_buf, uint32_t a_buf_len)
 {
         if (!a_buf)
         {
+                WAFLZ_PERROR(m_err_msg, "a_buf == NULL");
                 return WAFLZ_STATUS_ERROR;
         }
         if (a_buf_len > _CONFIG_ACL_MAX_SIZE)
@@ -312,6 +319,10 @@ int32_t acl::init()
         m_id = m_pb->id();
         m_cust_id = m_pb->customer_id();
         m_name = m_pb->name();
+        if (m_pb->has_team_config())
+        {
+                m_team_config = m_pb->team_config();
+        }
         // -------------------------------------------------
         // allow_anonymous_proxy
         // -------------------------------------------------
@@ -388,6 +399,32 @@ int32_t acl::init()
                 _COMPILE_SD_ISO_LIST(whitelist);
                 _COMPILE_SD_ISO_LIST(accesslist);
                 _COMPILE_SD_ISO_LIST(blacklist);
+        }
+        // -------------------------------------------------
+        // ja3
+        // -------------------------------------------------
+        if (m_pb->has_ja3())
+        {
+#define _COMPILE_JA3_LIST(_type) do { \
+        for(int32_t i_ip = 0; i_ip < m_pb->ja3()._type##_size(); ++i_ip) { \
+                m_ja3_##_type.insert(m_pb->ja3()._type(i_ip)); \
+        } } while(0)
+                _COMPILE_JA3_LIST(whitelist);
+                _COMPILE_JA3_LIST(accesslist);
+                _COMPILE_JA3_LIST(blacklist);
+        }
+        // -------------------------------------------------
+        // ja4
+        // -------------------------------------------------
+        if (m_pb->has_ja4())
+        {
+#define _COMPILE_JA4_LIST(_type) do { \
+        for(int32_t i_ip = 0; i_ip < m_pb->ja4()._type##_size(); ++i_ip) { \
+                m_ja4_##_type.insert(m_pb->ja4()._type(i_ip)); \
+        } } while(0)
+                _COMPILE_JA4_LIST(whitelist);
+                _COMPILE_JA4_LIST(accesslist);
+                _COMPILE_JA4_LIST(blacklist);
         }
         // -------------------------------------------------
         // ASN
@@ -557,7 +594,7 @@ int32_t acl::process_whitelist(bool &ao_match, rqst_ctx &a_ctx)
                 if (l_s != WAFLZ_STATUS_OK)
                 {
                         // TODO log reason???
-                        goto country_check;
+                        goto ja3_check;
                 }
                 // -----------------------------------------
                 // if in whitelist - 
@@ -568,7 +605,40 @@ int32_t acl::process_whitelist(bool &ao_match, rqst_ctx &a_ctx)
                         return WAFLZ_STATUS_OK;
                 }
         }
-country_check:
+ja3_check:
+        // -------------------------------------------------
+        // ja3
+        // -------------------------------------------------
+        if (m_ja3_whitelist.size() &&
+           a_ctx.m_virt_ssl_client_ja3_md5.m_data &&
+           a_ctx.m_virt_ssl_client_ja3_md5.m_len)
+        {
+                std::string l_ja3_str;
+                l_ja3_str.assign(
+                        a_ctx.m_virt_ssl_client_ja3_md5.m_data,
+                        a_ctx.m_virt_ssl_client_ja3_md5.m_len
+                );
+                if (m_ja3_whitelist.find(l_ja3_str) != m_ja3_whitelist.end())
+                {
+                        ao_match = true;
+                        return WAFLZ_STATUS_OK;
+                }
+        }
+        // -------------------------------------------------
+        // ja4
+        // -------------------------------------------------
+        if (m_ja4_whitelist.size() &&
+           a_ctx.m_virt_ssl_client_ja4.m_data &&
+           a_ctx.m_virt_ssl_client_ja4.m_len)
+        {
+                std::string l_ja4_str(a_ctx.m_virt_ssl_client_ja4.m_data,
+                                      a_ctx.m_virt_ssl_client_ja4.m_len);
+                if (m_ja4_whitelist.find(l_ja4_str) != m_ja4_whitelist.end())
+                {
+                        ao_match = true;
+                        return WAFLZ_STATUS_OK;
+                }
+        }
         // -------------------------------------------------
         // country
         // -------------------------------------------------
@@ -755,6 +825,7 @@ int32_t acl::process_accesslist(waflz_pb::event **ao_event, rqst_ctx &a_ctx)
         data_t l_d;
         const data_unordered_map_t &l_hm = a_ctx.m_header_map;
         int32_t l_s;
+        std::string l_accesslist_name;
         // -------------------------------------------------
         // ip or src_addr used for: 
         // ip, subdivision, country, asn
@@ -763,7 +834,7 @@ int32_t acl::process_accesslist(waflz_pb::event **ao_event, rqst_ctx &a_ctx)
         l_buf_len = a_ctx.m_src_addr.m_len;
         if (!m_ip_accesslist)
         {
-                goto country_check;
+                goto ja3_check;
         }
         l_has = true;
         if (l_buf &&
@@ -776,12 +847,58 @@ int32_t acl::process_accesslist(waflz_pb::event **ao_event, rqst_ctx &a_ctx)
                         // ---------------------------------
                         // TODO log error reason???
                         // ---------------------------------
-                        goto country_check;
+                        goto ja3_check;
                 }
                 if (l_match)
                 {
                         return WAFLZ_STATUS_OK;
                 }
+                l_accesslist_name = "ip ";
+        }
+ja3_check:
+        // -------------------------------------------------
+        // ja3
+        // -------------------------------------------------
+        if (!m_ja3_accesslist.size())
+        {
+                goto ja4_check;
+        }
+        l_has = true;
+        if (m_ja3_accesslist.size() &&
+           a_ctx.m_virt_ssl_client_ja3_md5.m_data &&
+           a_ctx.m_virt_ssl_client_ja3_md5.m_len)
+        {
+                std::string l_ja3_str;
+                l_ja3_str.assign(
+                        a_ctx.m_virt_ssl_client_ja3_md5.m_data,
+                        a_ctx.m_virt_ssl_client_ja3_md5.m_len
+                );
+                if (m_ja3_accesslist.find(l_ja3_str) != m_ja3_accesslist.end())
+                {
+                        return WAFLZ_STATUS_OK;
+                }
+                l_accesslist_name += "ja3 ";
+        }
+ja4_check:
+        // -------------------------------------------------
+        // ja4
+        // -------------------------------------------------
+        if (!m_ja4_accesslist.size())
+        {
+                goto country_check;
+        }
+        l_has = true;
+        if (m_ja4_accesslist.size() &&
+           a_ctx.m_virt_ssl_client_ja4.m_data &&
+           a_ctx.m_virt_ssl_client_ja4.m_len)
+        {
+                std::string l_ja4_str(a_ctx.m_virt_ssl_client_ja4.m_data,
+                                      a_ctx.m_virt_ssl_client_ja4.m_len);
+                if (m_ja4_accesslist.find(l_ja4_str) != m_ja4_accesslist.end())
+                {
+                        return WAFLZ_STATUS_OK;
+                }
+                l_accesslist_name += "ja4 ";
         }
 country_check:
         // -------------------------------------------------
@@ -806,6 +923,7 @@ country_check:
                 {
                         return WAFLZ_STATUS_OK;
                 }
+                l_accesslist_name += "country ";
         }
 sd_iso_check:
         // ------------------------------------------------------------
@@ -855,9 +973,7 @@ sd_iso_check:
                                 return WAFLZ_STATUS_OK;
                         } 
                 }
-                // ------------------------------------------------------------
-                // check accesslist
-                // ------------------------------------------------------------
+                l_accesslist_name += "subdivision ";
         }
 asn_check:
         // -------------------------------------------------
@@ -875,6 +991,7 @@ asn_check:
                         return WAFLZ_STATUS_OK;
                 }
         }
+        l_accesslist_name += "asn ";
 url_check:
         // -------------------------------------------------
         // url
@@ -898,6 +1015,7 @@ url_check:
                 {
                         return WAFLZ_STATUS_OK;
                 }
+                l_accesslist_name += "url ";
         }
 user_agent_check:
         // -------------------------------------------------
@@ -922,6 +1040,7 @@ user_agent_check:
                 {
                         return WAFLZ_STATUS_OK;
                 }
+                l_accesslist_name += "user-agent ";
         }
 referer_check:
         // -------------------------------------------------
@@ -943,6 +1062,7 @@ referer_check:
                 {
                         return WAFLZ_STATUS_OK;
                 }
+                l_accesslist_name += "referer ";
         }
 cookie_check:
         // -------------------------------------------------
@@ -969,6 +1089,7 @@ cookie_check:
                 {
                         return WAFLZ_STATUS_OK;
                 }
+                l_accesslist_name += "cookie ";
         }
 done:
         // -------------------------------------------------
@@ -989,6 +1110,13 @@ done:
                 l_sevent->set_rule_id(80003);
                 l_sevent->set_rule_msg("Accesslist deny");
                 l_sevent->add_rule_tag("ACCESSLIST");
+                ::waflz_pb::event_var_t* l_var = l_sevent->mutable_matched_var();
+                l_var->set_name("Accesslist");
+                if (!l_accesslist_name.empty())
+                {
+                        l_accesslist_name.pop_back();
+                }
+                l_var->set_value(l_accesslist_name);
                 *ao_event = l_event;
         }
         return WAFLZ_STATUS_OK;
@@ -1026,11 +1154,11 @@ int32_t acl::process_blacklist(waflz_pb::event **ao_event, rqst_ctx &a_ctx)
                 if (l_s != WAFLZ_STATUS_OK)
                 {
                         // TODO log error reason???
-                        goto country_check;
+                        goto ja3_check;
                 }
                 if (!l_match)
                 {
-                        goto country_check;
+                        goto ja3_check;
                 }
                 // -----------------------------------------
                 // top level event
@@ -1052,6 +1180,94 @@ int32_t acl::process_blacklist(waflz_pb::event **ao_event, rqst_ctx &a_ctx)
                 ::waflz_pb::event_var_t* l_var = l_sevent->mutable_matched_var();
                 l_var->set_name("TX:real_ip");
                 l_var->set_value(l_buf, l_buf_len);
+                *ao_event = l_event;
+                return WAFLZ_STATUS_OK;
+        }
+ja3_check:
+        // -------------------------------------------------
+        // ja3
+        // -------------------------------------------------
+        if (m_ja3_blacklist.size() &&
+           a_ctx.m_virt_ssl_client_ja3_md5.m_data &&
+           a_ctx.m_virt_ssl_client_ja3_md5.m_len)
+        {
+                std::string l_ja3_str;
+                l_ja3_str.assign(
+                        a_ctx.m_virt_ssl_client_ja3_md5.m_data,
+                        a_ctx.m_virt_ssl_client_ja3_md5.m_len
+                );
+                bool l_match = false;
+                if (m_ja3_blacklist.find(l_ja3_str) != m_ja3_blacklist.end())
+                {
+                        l_match = true;
+                }
+                if (!l_match)
+                {
+                        goto ja4_check;
+                }
+                // -----------------------------------------
+                // top level event
+                // -----------------------------------------
+                waflz_pb::event *l_event = new ::waflz_pb::event();
+                l_event->set_rule_msg("Blacklist Ja3 match");
+                // -----------------------------------------
+                // subevent
+                // -----------------------------------------
+                ::waflz_pb::event *l_sevent = l_event->add_sub_event();
+                l_sevent->set_rule_id(80015);
+                l_sevent->set_rule_msg("Blacklist Ja3 match");
+                l_sevent->set_rule_op_name("STREQ");
+                l_sevent->set_rule_op_param("");
+                l_sevent->add_rule_tag("Ja3");
+                ::waflz_pb::event_var_t* l_rule_target = l_sevent->add_rule_target();
+                l_rule_target->set_name("Ja3");
+                l_rule_target->set_param("Ja3");
+                ::waflz_pb::event_var_t* l_var = l_sevent->mutable_matched_var();
+                l_var->set_name("virt_ssl_client_ja3_md5");
+                l_var->set_value(l_ja3_str);
+                *ao_event = l_event;
+
+                return WAFLZ_STATUS_OK;
+        }
+ja4_check:
+        // -------------------------------------------------
+        // ja4
+        // -------------------------------------------------
+        if (m_ja4_blacklist.size() &&
+           a_ctx.m_virt_ssl_client_ja4.m_data &&
+           a_ctx.m_virt_ssl_client_ja4.m_len)
+        {
+                std::string l_ja4_str(a_ctx.m_virt_ssl_client_ja4.m_data,
+                                      a_ctx.m_virt_ssl_client_ja4.m_len);
+                bool l_match = false;
+                if (m_ja4_blacklist.find(l_ja4_str) != m_ja4_blacklist.end())
+                {
+                        l_match = true;
+                }
+                if (!l_match)
+                {
+                        goto country_check;
+                }
+                // -----------------------------------------
+                // top level event
+                // -----------------------------------------
+                waflz_pb::event *l_event = new ::waflz_pb::event();
+                l_event->set_rule_msg("Blacklist Ja4 match");
+                // -----------------------------------------
+                // subevent
+                // -----------------------------------------
+                ::waflz_pb::event *l_sevent = l_event->add_sub_event();
+                l_sevent->set_rule_id(80020);
+                l_sevent->set_rule_msg("Blacklist Ja4 match");
+                l_sevent->set_rule_op_name("STREQ");
+                l_sevent->set_rule_op_param("");
+                l_sevent->add_rule_tag("Ja4");
+                ::waflz_pb::event_var_t* l_rule_target = l_sevent->add_rule_target();
+                l_rule_target->set_name("Ja4");
+                l_rule_target->set_param("Ja4");
+                ::waflz_pb::event_var_t* l_var = l_sevent->mutable_matched_var();
+                l_var->set_name("virt_ssl_client_ja4");
+                l_var->set_value(l_ja4_str);
                 *ao_event = l_event;
                 return WAFLZ_STATUS_OK;
         }
@@ -1794,7 +2010,7 @@ int32_t acl::process(waflz_pb::event **ao_event,
         // -------------------------------------------------
         // run phase 1 init
         // -------------------------------------------------
-        l_s = l_rqst_ctx->init_phase_1(m_engine.get_geoip2_mmdb(), NULL, NULL, NULL);
+        l_s = l_rqst_ctx->init_phase_1(m_engine, NULL, NULL, NULL);
         if (l_s != WAFLZ_STATUS_OK)
         {
                 WAFLZ_PERROR(m_err_msg, "performing rqst_ctx::init_phase_1");
@@ -1808,6 +2024,7 @@ int32_t acl::process(waflz_pb::event **ao_event,
         l_s = process_whitelist(l_match, *l_rqst_ctx);
         if (l_s != WAFLZ_STATUS_OK)
         {
+                WAFLZ_PERROR(m_err_msg, "error processing whitelist");
                 return WAFLZ_STATUS_ERROR;
         }
         // -------------------------------------------------
@@ -1825,6 +2042,7 @@ int32_t acl::process(waflz_pb::event **ao_event,
         l_s = process_accesslist(&l_event, *l_rqst_ctx);
         if (l_s != WAFLZ_STATUS_OK)
         {
+                WAFLZ_PERROR(m_err_msg, "error processing accesslist");
                 return WAFLZ_STATUS_ERROR;
         }
         if (l_event)
@@ -1837,6 +2055,7 @@ int32_t acl::process(waflz_pb::event **ao_event,
         l_s = process_blacklist(&l_event, *l_rqst_ctx);
         if (l_s != WAFLZ_STATUS_OK)
         {
+                WAFLZ_PERROR(m_err_msg, "error processing blacklist");
                 return WAFLZ_STATUS_ERROR;
         }
         if (l_event)

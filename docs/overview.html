@@ -1,20 +1,17 @@
 
 <!DOCTYPE html>
 
-<html lang="en">
+<html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Overview &#8212; Waflz 0.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
-    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
-    <script src="_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Dedication" href="dedication.html" />
@@ -35,104 +32,102 @@
 
           <div class="body" role="main">
             
-  <section id="overview">
-<h1>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h1>
-<section id="what-is-it">
-<h2>What is it?<a class="headerlink" href="#what-is-it" title="Permalink to this heading">¶</a></h2>
+  <div class="section" id="overview">
+<h1>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="what-is-it">
+<h2>What is it?<a class="headerlink" href="#what-is-it" title="Permalink to this headline">¶</a></h2>
 <p>An implementation of a WAF engine in c/c++ supporting processing a subset of ModSecurity rules functionalties, configurable with either json or ModSecurity rules.  waflz is optimized to support running many WAF profiles side by side, by using faster/smaller internal data types and sharing common ruleset data between the profiles.  E.g, if multiple WAF profiles refer to the same ruleset(s), the ruleset(s) are loaded only once for all and shared in memory.</p>
-</section>
-<section id="why-another-modsecurity-engine">
-<h2>Why another ModSecurity engine?<a class="headerlink" href="#why-another-modsecurity-engine" title="Permalink to this heading">¶</a></h2>
+</div>
+<div class="section" id="why-another-modsecurity-engine">
+<h2>Why another ModSecurity engine?<a class="headerlink" href="#why-another-modsecurity-engine" title="Permalink to this headline">¶</a></h2>
 <p>The open source standard implementation of the <a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/">ModSecurity Rules Engine</a> -while excellent, and extremely flexible for individuals’ use-cases, could be problematic in a CDN, where performance is the product.  One of the principle technical challenges in a CDN is “multi-tenancy”, where any given single physical server on our edge is servicing client requests for any given customer configuration.  Mechanically, on the edge customer configuration is “patched” in at run-time while the client request is being serviced.</p>
-<figure class="align-center" id="id1">
+<div class="align-center figure" id="id1">
 <a class="reference internal image-reference" href="_images/patching.svg"><img alt="patching" height="150px" src="_images/patching.svg" width="500px" /></a>
-<figcaption>
-<p><span class="caption-text">customer config patching on an edge server</span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
-</figcaption>
-</figure>
+<p class="caption"><span class="caption-text">customer config patching on an edge server</span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
+</div>
 <p>The resource implications of being able to “patch” in any given customer configuration from any given edge server means configuration must be lightweight and servicing the request must be done as fast as possible.  One customer configuration using too much memory crowds out the others (memory being finite).  Performance wise, client requests taking too long to service eventually affect other client requests (including other customers).</p>
-<p>Development from this perspective changes many of the engineering trade-offs.  Determinism, more restrictive memory and cpu constraints tend to trump flexibility, so <a class="reference external" href="https://github.com/edgio/waflz">waflz</a> was developed specifically to suit the needs of a CDN.</p>
-</section>
-<section id="architecture">
-<h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this heading">¶</a></h2>
-<section id="input-output-formats">
-<h3>Input/Output Formats<a class="headerlink" href="#input-output-formats" title="Permalink to this heading">¶</a></h3>
-<p>We thought one of the biggest candidates for improvement in developing our own engine was the representation of rule language in code.  A more rigid schema might lead to simpler, easier to reason about implementations.  We settled on defining the rules in <a class="reference external" href="https://developers.google.com/protocol-buffers/">protocol buffers</a> schema -see:  <a class="reference external" href="https://github.com/edgio/waflz/blob/master/proto/rule.proto">definitions</a>.  Some of the benefits to this approach included:</p>
+<p>Development from this perspective changes many of the engineering trade-offs.  Determinism, more restrictive memory and cpu constraints tend to trump flexibility, so <a class="reference external" href="https://github.com/edgioinc/waflz">waflz</a> was developed specifically to suit the needs of a CDN.</p>
+</div>
+<div class="section" id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="input-output-formats">
+<h3>Input/Output Formats<a class="headerlink" href="#input-output-formats" title="Permalink to this headline">¶</a></h3>
+<p>We thought one of the biggest candidates for improvement in developing our own engine was the representation of rule language in code.  A more rigid schema might lead to simpler, easier to reason about implementations.  We settled on defining the rules in <a class="reference external" href="https://developers.google.com/protocol-buffers/">protocol buffers</a> schema -see:  <a class="reference external" href="https://github.com/edgioinc/waflz/blob/master/proto/rule.proto">definitions</a>.  Some of the benefits to this approach included:</p>
 <ul class="simple">
-<li><p>Protocol buffers are interoperable with json, ideal for working with API’s.  Translation between the protocol buffers and ModSecurity format was added by us, allowing for interoperability between the 3 formats (json/protocol buffers/ModSecurity).  <a class="reference external" href="https://github.com/edgio/waflz/tree/master/util/waflz_dump">waflz_dump</a> is a utility for converting between the 3 formats.</p></li>
+<li><p>Protocol buffers are interoperable with json, ideal for working with API’s.  Translation between the protocol buffers and ModSecurity format was added by us, allowing for interoperability between the 3 formats (json/protocol buffers/ModSecurity).  <a class="reference external" href="https://github.com/edgioinc/waflz/tree/master/util/waflz_dump">waflz_dump</a> is a utility for converting between the 3 formats.</p></li>
 <li><p>The parsed protocol buffer representation can be used in the code, circumventing duplication in redefining internal data structures to mirror the data definitions.</p></li>
 </ul>
-</section>
-<section id="server-shims">
-<h3>Server Shims<a class="headerlink" href="#server-shims" title="Permalink to this heading">¶</a></h3>
+</div>
+<div class="section" id="server-shims">
+<h3>Server Shims<a class="headerlink" href="#server-shims" title="Permalink to this headline">¶</a></h3>
 <p>Another interesting detail is how to write a library that plugs into HTTP server applications like nginx, apache, or “Sailfish” (the Edgio HTTP server application).  The library shouldn’t expose its internal complexity, but for a WAF quite a bit of request context information has to be passed between the HTTP server and the library.  To write a plugin for waflz, server specific callbacks are defined along with the “request context pointer”, to extract various parts of the HTTP request and provide them back to the waflz library.</p>
 <p>An example using the <a class="reference external" href="https://github.com/Edgio/is2">is2</a> embedded http server library:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="c1">// get request method callback</span>
-<span class="k">static</span><span class="w"> </span><span class="kt">int32_t</span><span class="w"> </span><span class="nf">get_rqst_method_cb</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">**</span><span class="n">a_data</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                  </span><span class="kt">uint32_t</span><span class="w"> </span><span class="o">&amp;</span><span class="n">a_len</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                  </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">a_ctx</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// cast in request context</span>
-<span class="w">        </span><span class="n">ns_is2</span><span class="o">::</span><span class="n">rqst</span><span class="w"> </span><span class="o">*</span><span class="n">l_rqst</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">((</span><span class="n">ns_is2</span><span class="o">::</span><span class="n">session</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">a_ctx</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">m_rqst</span><span class="p">;</span><span class="w"></span>
+<span class="k">static</span> <span class="kt">int32_t</span> <span class="nf">get_rqst_method_cb</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">**</span><span class="n">a_data</span><span class="p">,</span>
+                                  <span class="kt">uint32_t</span> <span class="o">&amp;</span><span class="n">a_len</span><span class="p">,</span>
+                                  <span class="kt">void</span> <span class="o">*</span><span class="n">a_ctx</span><span class="p">)</span>
+<span class="p">{</span>
+        <span class="c1">// cast in request context</span>
+        <span class="n">ns_is2</span><span class="o">::</span><span class="n">rqst</span> <span class="o">*</span><span class="n">l_rqst</span> <span class="o">=</span> <span class="p">((</span><span class="n">ns_is2</span><span class="o">::</span><span class="n">session</span> <span class="o">*</span><span class="p">)</span><span class="n">a_ctx</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">m_rqst</span><span class="p">;</span>
 
-<span class="w">        </span><span class="c1">// extract request method</span>
-<span class="w">        </span><span class="o">*</span><span class="n">a_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">l_rqst</span><span class="o">-&gt;</span><span class="n">get_method_str</span><span class="p">();</span><span class="w"></span>
-<span class="w">        </span><span class="n">a_len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strlen</span><span class="p">(</span><span class="n">l_rqst</span><span class="o">-&gt;</span><span class="n">get_method_str</span><span class="p">());</span><span class="w"></span>
+        <span class="c1">// extract request method</span>
+        <span class="o">*</span><span class="n">a_data</span> <span class="o">=</span> <span class="n">l_rqst</span><span class="o">-&gt;</span><span class="n">get_method_str</span><span class="p">();</span>
+        <span class="n">a_len</span> <span class="o">=</span> <span class="n">strlen</span><span class="p">(</span><span class="n">l_rqst</span><span class="o">-&gt;</span><span class="n">get_method_str</span><span class="p">());</span>
 
-<span class="w">        </span><span class="c1">// return status OK == 0</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+        <span class="c1">// return status OK == 0</span>
+        <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-<p>The list of user definable callbacks is <a class="reference external" href="https://github.com/edgio/waflz/blob/master/include/waflz/rqst_ctx.h#L68">here</a> -<em>NOTE</em>: <em>we’re working to reducing the number of required callback definitions for waflz server integration.  Many of these can be collapsed</em></p>
-</section>
-<section id="server-less-testing">
-<h3>Server-less Testing<a class="headerlink" href="#server-less-testing" title="Permalink to this heading">¶</a></h3>
-<p>A benefit of defining a plugin this way with callbacks to get the HTTP request data, is it allows for “server-less testing” in whitebox tests.  There’s few examples of <a class="reference external" href="https://github.com/edgio/waflz/blob/master/tests/whitebox/core/wb_profile_acl.cc#L99">this</a> in our whitebox testing framework in the access control list (ACL) tests, where the server callbacks are stubbed out, and the library runs and tests as if it was embedded in and actual HTTP server application.</p>
+<p>The list of user definable callbacks is <a class="reference external" href="https://github.com/edgioinc/waflz/blob/master/include/waflz/rqst_ctx.h#L68">here</a> -<em>NOTE</em>: <em>we’re working to reducing the number of required callback definitions for waflz server integration.  Many of these can be collapsed</em></p>
+</div>
+<div class="section" id="server-less-testing">
+<h3>Server-less Testing<a class="headerlink" href="#server-less-testing" title="Permalink to this headline">¶</a></h3>
+<p>A benefit of defining a plugin this way with callbacks to get the HTTP request data, is it allows for “server-less testing” in whitebox tests.  There’s few examples of <a class="reference external" href="https://github.com/edgioinc/waflz/blob/master/tests/whitebox/core/wb_profile_acl.cc#L99">this</a> in our whitebox testing framework in the access control list (ACL) tests, where the server callbacks are stubbed out, and the library runs and tests as if it was embedded in and actual HTTP server application.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="c1">// spoof a request uri/path with a callback</span>
-<span class="k">static</span><span class="w"> </span><span class="kt">int32_t</span><span class="w"> </span><span class="nf">get_rqst_uri_bananas_cb</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">**</span><span class="n">a_data</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="o">&amp;</span><span class="n">a_len</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">a_ctx</span><span class="p">)</span><span class="w"></span>
-<span class="p">{</span><span class="w"></span>
-<span class="w">       </span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">s_uri</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;/bananas/monkey&quot;</span><span class="p">;</span><span class="w"></span>
-<span class="w">       </span><span class="o">*</span><span class="n">a_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">s_uri</span><span class="p">;</span><span class="w"></span>
-<span class="w">       </span><span class="n">a_len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">s_uri</span><span class="p">);</span><span class="w"></span>
-<span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
+<span class="k">static</span> <span class="kt">int32_t</span> <span class="nf">get_rqst_uri_bananas_cb</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">**</span><span class="n">a_data</span><span class="p">,</span> <span class="kt">uint32_t</span> <span class="o">&amp;</span><span class="n">a_len</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">a_ctx</span><span class="p">)</span>
+<span class="p">{</span>
+       <span class="k">static</span> <span class="k">const</span> <span class="kt">char</span> <span class="n">s_uri</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&quot;/bananas/monkey&quot;</span><span class="p">;</span>
+       <span class="o">*</span><span class="n">a_data</span> <span class="o">=</span> <span class="n">s_uri</span><span class="p">;</span>
+       <span class="n">a_len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">s_uri</span><span class="p">);</span>
+       <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
 
-<span class="p">...</span><span class="w"></span>
+<span class="p">...</span>
 
-<span class="w"> </span><span class="c1">// write a catch.hpp to test waflz processing w/ spoofed server callback</span>
-<span class="w"> </span><span class="n">SECTION</span><span class="p">(</span><span class="s">&quot;verify simple URI match&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+ <span class="c1">// write a catch.hpp to test waflz processing w/ spoofed server callback</span>
+ <span class="n">SECTION</span><span class="p">(</span><span class="s">&quot;verify simple URI match&quot;</span><span class="p">)</span> <span class="p">{</span>
 
-<span class="w">         </span><span class="c1">// set callbacks...</span>
-<span class="w">         </span><span class="n">ns_waflz</span><span class="o">::</span><span class="n">rqst_ctx</span><span class="o">::</span><span class="n">s_get_rqst_uri_cb</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_rqst_uri_bananas_cb</span><span class="p">;</span><span class="w"></span>
-<span class="w">         </span><span class="p">...</span><span class="w"></span>
-<span class="w">         </span><span class="c1">// waflz processing...</span>
-<span class="w">         </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">l_ctx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span><span class="w"></span>
-<span class="w">         </span><span class="n">waflz_pb</span><span class="o">::</span><span class="n">event</span><span class="w"> </span><span class="o">*</span><span class="n">l_event</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span><span class="w"></span>
-<span class="w">         </span><span class="kt">int</span><span class="w"> </span><span class="n">l_s</span><span class="p">;</span><span class="w"></span>
-<span class="w">         </span><span class="n">l_s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">l_profile</span><span class="o">-&gt;</span><span class="n">process</span><span class="p">(</span><span class="o">&amp;</span><span class="n">l_event</span><span class="p">,</span><span class="w"> </span><span class="n">l_ctx</span><span class="p">);</span><span class="w"></span>
-<span class="w">         </span><span class="n">REQUIRE</span><span class="p">((</span><span class="n">l_s</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">WAFLZ_STATUS_OK</span><span class="p">));</span><span class="w"></span>
-<span class="w">         </span><span class="n">REQUIRE</span><span class="p">((</span><span class="n">l_event</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">));</span><span class="w"></span>
-<span class="w">         </span><span class="p">...</span><span class="w"></span>
-<span class="p">...</span><span class="w"></span>
+         <span class="c1">// set callbacks...</span>
+         <span class="n">ns_waflz</span><span class="o">::</span><span class="n">rqst_ctx</span><span class="o">::</span><span class="n">s_get_rqst_uri_cb</span> <span class="o">=</span> <span class="n">get_rqst_uri_bananas_cb</span><span class="p">;</span>
+         <span class="p">...</span>
+         <span class="c1">// waflz processing...</span>
+         <span class="kt">void</span> <span class="o">*</span><span class="n">l_ctx</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+         <span class="n">waflz_pb</span><span class="o">::</span><span class="n">event</span> <span class="o">*</span><span class="n">l_event</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+         <span class="kt">int</span> <span class="n">l_s</span><span class="p">;</span>
+         <span class="n">l_s</span> <span class="o">=</span> <span class="n">l_profile</span><span class="o">-&gt;</span><span class="n">process</span><span class="p">(</span><span class="o">&amp;</span><span class="n">l_event</span><span class="p">,</span> <span class="n">l_ctx</span><span class="p">);</span>
+         <span class="n">REQUIRE</span><span class="p">((</span><span class="n">l_s</span> <span class="o">==</span> <span class="n">WAFLZ_STATUS_OK</span><span class="p">));</span>
+         <span class="n">REQUIRE</span><span class="p">((</span><span class="n">l_event</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">));</span>
+         <span class="p">...</span>
+<span class="p">...</span>
 </pre></div>
 </div>
-</section>
-<section id="muti-tenancy-concerns">
-<h3>“Muti-tenancy” Concerns<a class="headerlink" href="#muti-tenancy-concerns" title="Permalink to this heading">¶</a></h3>
+</div>
+<div class="section" id="muti-tenancy-concerns">
+<h3>“Muti-tenancy” Concerns<a class="headerlink" href="#muti-tenancy-concerns" title="Permalink to this headline">¶</a></h3>
 <p>Running a WAF in a CDN, the principle resource issue can be many customer configurations loading the same 3 or 4 WAF ruleset definitions (100’s to 1000’s of rules) into a server process’s memory.  The obvious optimization is to load rulesets only once and share read-only copies internally between the customer configurations.  One challenge with this approach, however, is custom configurable rule modifications like <a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#SecRuleUpdateTargetById">SecRuleUpdateTargetById</a> complicate the implementation of sharing ruleset data.  waflz dedupes rulesets loaded previously, saving precious process memory in production.</p>
-</section>
-<section id="performance-tweaks">
-<h3>Performance Tweaks<a class="headerlink" href="#performance-tweaks" title="Permalink to this heading">¶</a></h3>
+</div>
+<div class="section" id="performance-tweaks">
+<h3>Performance Tweaks<a class="headerlink" href="#performance-tweaks" title="Permalink to this headline">¶</a></h3>
 <p>There are a few critical data structures in a ModSecurity-compatible WAF, besides the usual strings, and regex patterns.  Here’s a list of a few we strived to improve for our specific use-cases:</p>
 <ul class="simple">
-<li><p><strong>Aho-Corasick</strong>: For operators like <a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#pm">PM</a>/<a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#pmfromfile">PMFROMFILE</a> (multiple substring matching like “grep -F/fgrep”), an <a class="reference external" href="https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm">Aho-Corasick</a> data structure is constructed for faster parallel searching of substrings.  <a class="reference external" href="https://github.com/edgio/waflz/blob/master/src/op/ac.h">Our construction</a> is similar to the <a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/blob/v2/master/apache2/acmp.h">acmp</a> object in the standard implementation but more space efficient, as it prunes node meta information.  Search performance is similar as the tree is traversed similarly in both implementations.</p></li>
-<li><p><strong>IP Tree</strong>: We’ve had an internal <a class="reference external" href="https://github.com/edgio/waflz/blob/master/src/op/nms.h">IP Tree</a> kicking around our internal repos, that’s performed well for us and seems to be faster than the <a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/blob/v2/master/apache2/msc_tree.h">msc_tree</a> in the standard implementation -see: <a class="reference internal" href="appendix.html#appendix-iptrie"><span class="std std-ref">IP Trie Performance</span></a>.  It’s reusable as well outside of our library.</p></li>
+<li><p><strong>Aho-Corasick</strong>: For operators like <a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#pm">PM</a>/<a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#pmfromfile">PMFROMFILE</a> (multiple substring matching like “grep -F/fgrep”), an <a class="reference external" href="https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm">Aho-Corasick</a> data structure is constructed for faster parallel searching of substrings.  <a class="reference external" href="https://github.com/edgioinc/waflz/blob/master/src/op/ac.h">Our construction</a> is similar to the <a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/blob/v2/master/apache2/acmp.h">acmp</a> object in the standard implementation but more space efficient, as it prunes node meta information.  Search performance is similar as the tree is traversed similarly in both implementations.</p></li>
+<li><p><strong>IP Tree</strong>: We’ve had an internal <a class="reference external" href="https://github.com/edgioinc/waflz/blob/master/include/waflz/nms.h">IP Tree</a> kicking around our internal repos, that’s performed well for us and seems to be faster than the <a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/blob/v2/master/apache2/msc_tree.h">msc_tree</a> in the standard implementation -see: <a class="reference internal" href="appendix.html#appendix-iptrie"><span class="std std-ref">IP Trie Performance</span></a>.  It’s reusable as well outside of our library.</p></li>
 <li><p><strong>XPath</strong>: For <a class="reference external" href="https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-%28v2.x%29#XML">“XML:&lt;path&gt;”</a> targets in the rules to mitigate the performance overhead of recalculating the same expression in the rules during request processing, we built in XPath cache-ing. For example <em>grep</em> how many times the expression “XML:/*” appears in the OWASP CRS ruleset to see how many times an XPath could be recomputed in the processing of a single request without a cache-ing layer.</p></li>
 </ul>
-</section>
-</section>
-</section>
+</div>
+</div>
+</div>
 
 
           </div>
@@ -187,7 +182,7 @@
     </form>
     </div>
 </div>
-<script>document.getElementById('searchbox').style.display = "block"</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -201,10 +196,10 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2022, Reed Morrison, Devender Singh.
+      &copy;2020, Reed Morrison, Devender Singh.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.2.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.4.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

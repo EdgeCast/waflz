@@ -1,0 +1,21 @@
+{
+    "id": "bot5c0r3",
+    "customer_id":"0100",
+    "num": 2,
+    "duration_sec":2,
+    "condition_groups":[
+        {
+            "conditions":[{
+                "op": {
+                    "is_negated":false,
+                    "type": "GT",
+                    "value": "50"
+                },
+                "target":{
+                    "type": "BOT_SCORE"
+                }
+            }]
+        }
+    ],
+    "last_modified_date": "2019-04-18T19:48:25.142172Z"
+}

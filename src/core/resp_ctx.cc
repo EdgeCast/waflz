@@ -13,13 +13,13 @@
 //! ----------------------------------------------------------------------------
 #include "event.pb.h"
 #include "waflz/resp_ctx.h"
+#include "waflz/geoip2_mmdb.h"
 #include "waflz/string_util.h"
 #include "waflz/trace.h"
 #include "support/ndebug.h"
 #include "support/file_util.h"
 #include "support/time_util.h"
 #include "core/decode.h"
-#include <climits>
 #include <stdlib.h>
 #include <string.h>
 //! ----------------------------------------------------------------------------
@@ -35,25 +35,35 @@ namespace ns_waflz {
 //! ----------------------------------------------------------------------------
 resp_ctx::resp_ctx(void *a_ctx,
                    uint32_t a_body_len_max,
-                   const resp_ctx_callbacks *a_callbacks):
+                   uint32_t a_body_api_sec_len_max,
+                   const resp_ctx_callbacks *a_callbacks,
+                   int32_t a_content_length,
+                   void* a_srv):
         m_src_addr(),
         m_an(),
+        m_team_id(),
         m_host(),
         m_port(0),
+        m_backend_port(0),
         m_method(),
         m_url(),
         m_uri(),
         m_uri_path_len(0),
-        m_content_length(0),
+        m_content_length(a_content_length),
         m_content_type_list(),
         m_header_map(),
         m_header_list(),
         m_body_len_max(a_body_len_max),
+        m_body_api_sec_len_max(a_body_api_sec_len_max),
         m_body_data(NULL),
         m_body_len(0),
         m_resp_status(0),
+        m_resp_status_str(),
         m_intercepted(false),
         m_req_uuid(),
+        m_src_asn_str(),
+        m_geo_cc_sd(),
+        m_geo_data(),
         // -------------------------------------------------
         // collections
         // -------------------------------------------------
@@ -70,9 +80,14 @@ resp_ctx::resp_ctx(void *a_ctx,
         m_skip_after(NULL),
         m_event(NULL),
         m_callbacks(a_callbacks),
-        m_ctx(a_ctx)
+        m_set_response_status(0),
+        m_signal_enf(0),
+        m_limit(NULL),
+        m_audit_limit(NULL),
+        m_ctx(a_ctx),
+        m_srv(a_srv)
 {
-
+    
 }
 //! ----------------------------------------------------------------------------
 //! \details: TODO
@@ -90,6 +105,10 @@ resp_ctx::~resp_ctx()
                 m_body_data = NULL;
                 m_body_len = 0;
         }
+        // -------------------------------------------------
+        // delete any extensions
+        // -------------------------------------------------
+        if (m_src_asn_str.m_data) { free(m_src_asn_str.m_data); m_src_asn_str.m_data = NULL; m_src_asn_str.m_len = 0; }
 }
 
 //! ----------------------------------------------------------------------------
@@ -130,7 +149,7 @@ int32_t resp_ctx::reset_phase_3()
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-int32_t resp_ctx::init_phase_3()
+int32_t resp_ctx::init_phase_3(geoip2_mmdb &a_geoip2_mmdb)
 {
         if (m_init_phase_3)
         {
@@ -150,6 +169,21 @@ int32_t resp_ctx::init_phase_3()
                 {
                         // TODO log reason???
                         return WAFLZ_STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // Gather country code, sd1, sd2, is_anonymous_proxy
+        // for mmdb
+        //
+        // NOTE: subdiv iso = m_geo_cn2 + "-" + get_sd_iso
+        // -------------------------------------------------
+        if ( (m_src_addr.m_len > 0) && m_src_addr.m_data )
+        {
+                int32_t l_s;
+                l_s = get_geo_data_from_mmdb(a_geoip2_mmdb);
+                if (l_s != WAFLZ_STATUS_OK)
+                {
+
                 }
         }
         // -------------------------------------------------
@@ -196,6 +230,18 @@ int32_t resp_ctx::init_phase_3()
                 if (l_s != 0)
                 {
                         // TODO log reason???
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // set team id
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_team_id_cb)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_team_id_cb(m_team_id, m_ctx);
+                if (l_s != 0)
+                {
                         return WAFLZ_STATUS_ERROR;
                 }
         }
@@ -260,6 +306,16 @@ int32_t resp_ctx::init_phase_3()
         // -------------------------------------------------
         // headers
         // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_resp_status_cb)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_resp_status_cb(&m_resp_status, m_ctx);
+                if (l_s != 0)
+                {
+                        //WAFLZ_PERROR(m_err_msg, "performing s_get_resp_header_size_cb");
+                }
+                m_resp_status_str = std::to_string(m_resp_status);
+        }
         uint32_t l_hdr_size = 0;
         if (m_callbacks && m_callbacks->m_get_resp_header_size_cb)
         {
@@ -316,10 +372,65 @@ int32_t resp_ctx::init_phase_3()
                 {
                         parse_content_type(m_content_type_list, &l_hdr);
                 }
-                // Get content-length, to be verified in phase 2
-                if (strncasecmp(l_hdr.m_key, "Content-Length", sizeof("Content-Length") - 1) == 0)
+                if(m_content_length == -1)
                 {
-                        m_content_length = strntoul(l_hdr.m_val , l_hdr.m_val_len, NULL, 10);
+                        // Get content-length, to be verified in phase 2
+                        if (strncasecmp(l_hdr.m_key, "Content-Length", sizeof("Content-Length") - 1) == 0)
+                        {
+                                m_content_length = strntoul(l_hdr.m_val , l_hdr.m_val_len, NULL, 10);
+                        }
+                }
+        }
+        // -------------------------------------------------
+        // request headers - for event logging purposes only
+        // -------------------------------------------------
+        uint32_t l_rqst_hdr_size = 0;
+        if (m_callbacks && m_callbacks->m_get_rqst_header_size_cb)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_rqst_header_size_cb(&l_rqst_hdr_size, m_ctx);
+                if (l_s != 0)
+                {
+                        //WAFLZ_PERROR(m_err_msg, "performing s_get_resp_header_size_cb");
+                }
+        }
+        for(uint32_t i_h = 0; i_h < l_rqst_hdr_size; ++i_h)
+        {
+                const_arg_t l_hdr;
+                if (!m_callbacks || !m_callbacks->m_get_rqst_header_w_idx_cb)
+                {
+                        continue;
+                }
+                int32_t l_s;
+                l_s = m_callbacks->m_get_rqst_header_w_idx_cb(&l_hdr.m_key, &l_hdr.m_key_len,
+                                                 &l_hdr.m_val, &l_hdr.m_val_len,
+                                                 m_ctx,
+                                                 i_h);
+                if (l_s != 0)
+                {
+                        //WAFLZ_PERROR(m_err_msg, "performing s_get_resp_header_w_idx_cb: idx: %u", i_h);
+                        continue;
+                }
+                if (!l_hdr.m_key)
+                {
+                        continue;
+                }
+                // -----------------------------------------
+                // else just add header...
+                // -----------------------------------------
+                else
+                {
+                        m_header_list.push_back(l_hdr);
+                        // ---------------------------------
+                        // map
+                        // ---------------------------------
+                        data_t l_key;
+                        l_key.m_data = l_hdr.m_key;
+                        l_key.m_len = l_hdr.m_key_len;
+                        data_t l_val;
+                        l_val.m_data = l_hdr.m_val;
+                        l_val.m_len = l_hdr.m_val_len;
+                        m_header_map[l_key] = l_val;
                 }
         }
         // -------------------------------------------------
@@ -335,6 +446,18 @@ int32_t resp_ctx::init_phase_3()
                 {
                         // TODO log reason???
                         //return STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // sf backend port
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_backend_port_cb)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_backend_port_cb(&m_backend_port, m_srv);
+                if (l_s != 0)
+                {
+                        return WAFLZ_STATUS_ERROR;
                 }
         }
         m_init_phase_3 = true;
@@ -354,7 +477,7 @@ int32_t resp_ctx::init_phase_4()
         // -------------------------------------------------
         // get content length
         // -------------------------------------------------
-        if (m_content_length == ULONG_MAX)
+        if (m_content_length == LONG_MAX)
         {
                 // TODO -return reason...
                 m_init_phase_4 = true;
@@ -366,19 +489,16 @@ int32_t resp_ctx::init_phase_4()
                 return WAFLZ_STATUS_OK;
         }
         // -------------------------------------------------
-        // calculate body size
+        // If content len is less than api sec max, pull 
+        // full body. If not, don't pull truncated api sec
+        // len max since it will fail validation anyways
         // -------------------------------------------------
         uint32_t l_body_len;
-        l_body_len = m_content_length > m_body_len_max ? m_body_len_max : m_content_length;
+        l_body_len = m_content_length <= m_body_api_sec_len_max ? m_content_length : m_body_len_max;
         //NDBG_PRINT("body len %d\n", l_body_len);
         // -------------------------------------------------
         // get content type
         // -------------------------------------------------
-        if (!m_content_type_list.size())
-        {
-                m_init_phase_4 = true;
-                return WAFLZ_STATUS_OK;
-        }
         if (!m_content_type_list.size())
         {
                 m_init_phase_4 = true;
@@ -435,7 +555,95 @@ int32_t resp_ctx::init_phase_4()
         m_init_phase_4 = true;
         return WAFLZ_STATUS_OK;
 }
-
+//! ----------------------------------------------------------------------------
+//! \details gets geo data from mmdb, updates m_geo_data
+//! \return  waflz status
+//! \param   a_geoip2_mmdb: mmdb database
+//! ----------------------------------------------------------------------------
+int32_t resp_ctx::get_geo_data_from_mmdb(geoip2_mmdb &a_geoip2_mmdb)
+{
+        // -------------------------------------------------
+        // if no ip - no data to get
+        // -------------------------------------------------
+        if (!DATA_T_EXIST(m_src_addr))
+        {
+                return WAFLZ_STATUS_OK;
+        }
+        // -------------------------------------------------
+        // get geo data
+        // -------------------------------------------------
+        int32_t l_s;
+        l_s = a_geoip2_mmdb.get_geo_data(&m_geo_data,
+                                         &m_src_addr);
+        if ( l_s != WAFLZ_STATUS_OK )
+        {
+                // debug here?
+        }
+        // -------------------------------------------------
+        // setting up full m_geo_cc_sd string
+        // -------------------------------------------------
+        if ( DATA_T_EXIST(m_geo_data.m_geo_cn2) &&
+             DATA_T_EXIST(m_geo_data.m_src_sd1_iso) )
+        {
+                m_geo_cc_sd = std::string(
+                        m_geo_data.m_geo_cn2.m_data,
+                        m_geo_data.m_geo_cn2.m_len);
+                m_geo_cc_sd += "-" + std::string(
+                        m_geo_data.m_src_sd1_iso.m_data,
+                        m_geo_data.m_src_sd1_iso.m_len);
+        }
+        else if (DATA_T_EXIST(m_geo_data.m_geo_cn2) 
+                && DATA_T_EXIST(m_geo_data.m_src_sd2_iso))
+        {
+                m_geo_cc_sd = std::string(
+                        m_geo_data.m_geo_cn2.m_data,
+                        m_geo_data.m_geo_cn2.m_len);
+                m_geo_cc_sd += "-" + std::string(
+                        m_geo_data.m_src_sd2_iso.m_data,
+                        m_geo_data.m_src_sd2_iso.m_len);
+        }
+        // -------------------------------------------------
+        // converting to str temporarily for str
+        // comparisons...
+        // -------------------------------------------------
+        if (m_geo_data.m_src_asn)
+        {
+                m_src_asn_str.m_len = asprintf(
+                                &(m_src_asn_str.m_data),
+                                "%d",
+                                m_geo_data.m_src_asn);
+        }
+        // -------------------------------------------------
+        // return ok
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details TODO
+//! \return  TODO
+//! \param   TODO
+//! ----------------------------------------------------------------------------
+const data_t* resp_ctx::get_header(const std::string_view& header_name)
+{
+        // -------------------------------------------------
+        // construct search data_t
+        // -------------------------------------------------
+        data_t l_search_data;
+        l_search_data.m_data = header_name.data();
+        l_search_data.m_len = header_name.length();
+        // -------------------------------------------------
+        // search for header
+        // -------------------------------------------------
+        data_unordered_map_t::const_iterator i_search_results = m_header_map.find(l_search_data);
+        // -------------------------------------------------
+        // return results or NULL
+        // -------------------------------------------------
+        if (i_search_results == m_header_map.end())
+        {
+                return NULL;
+        }
+        return &(i_search_results->second);
+}
 //! ----------------------------------------------------------------------------
 //! \details TODO
 //! \return  TODO
@@ -487,6 +695,17 @@ int32_t resp_ctx::append_resp_info(waflz_pb::event &ao_event)
         _SET_HEADER("X-Forwarded-For", x_forwarded_for);
         _SET_HEADER("Content-Type", content_type);
         _SET_IF_EXIST_STR(m_uri, orig_url);
+        // -------------------------------------------------
+        // Append all response headers
+        // -------------------------------------------------
+        for (data_unordered_map_t::const_iterator i_h = m_header_map.begin();
+            i_h != m_header_map.end();
+            ++i_h)
+        {
+                waflz_pb::request_info::req_header_t *l_req_header = l_request_info->add_request_headers();
+                l_req_header->set_key(i_h->first.m_data, i_h->first.m_len);
+                l_req_header->set_value(i_h->second.m_data, i_h->second.m_len);
+        }
         // -------------------------------------------------
         // others...
         // -------------------------------------------------

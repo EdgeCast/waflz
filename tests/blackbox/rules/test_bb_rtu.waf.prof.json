@@ -43,14 +43,14 @@
       "REQUEST-949-BLOCKING-EVALUATION.conf"
   ],
   "rule_target_updates": [
-  {
-    "replace_target" : "",
-     "rule_id" : "944130",
-     "is_regex" : true,
-     "is_negated" : true,
-     "target_match" : ".*",
-     "target" : "ARGS_NAMES"    
-  }
+    {
+      "replace_target" : "",
+      "rule_id" : "944130",
+      "is_regex" : true,
+      "is_negated" : true,
+      "target_match" : ".*",
+      "target" : "ARGS_NAMES"    
+    }
   ],
   "custom_rules": [],
   "disabled_rules": [],

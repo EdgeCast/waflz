@@ -79,7 +79,10 @@ typedef enum {
         PART_MK_WAF = 2,
         PART_MK_RULES = 4,
         PART_MK_LIMITS = 8,
-        PART_MK_ALL = 63,
+        PART_MK_BOTS = 16,
+        PART_MK_API_GW = 32,
+        PART_MK_CLIENT_WAF = 64,
+        PART_MK_ALL = 127,
 } part_mk_t;
 struct cx_case_i_comp
 {
@@ -92,7 +95,12 @@ struct cx_case_i_comp
 //! ----------------------------------------------------------------------------
 //! constants
 //! ----------------------------------------------------------------------------
-#define DEFAULT_BODY_SIZE_MAX (128*1024)
+#define CAPTCHA_GOOGLE_TOKEN "__ecreha__"
+#define CAPTCHA_VERIFIED_TOKEN  "__ecrever__"
+#define SITE_VERIFY_URL "https://www.google.com/recaptcha/api/siteverify"
+#define DEFAULT_BODY_API_SEC_SIZE_MAX (128*1024)
+#define DEFAULT_BODY_SIZE_MAX (8*1024)
+#define DEFAULT_RESP_BODY_SIZE_MAX (128*1024)
 const short int HTTP_STATUS_OK = 200;
 const short int HTTP_STATUS_AUTHENTICATION_REQUIRED = 407;
 const short int HTTP_STATUS_FORBIDDEN = 403;
@@ -111,6 +119,7 @@ typedef int32_t (*get_resp_kv_w_idx_cb_t)(const char **, uint32_t *, const char 
 typedef int32_t (*get_resp_body_data_cb_t)(char **, uint32_t *, bool* , void *, uint32_t);
 
 #ifdef __cplusplus
+typedef int32_t (*get_rqst_data_str_cb_t)(std::string&, void*);
 typedef int32_t (*get_data_cb_t)(std::string&, uint32_t *);
 typedef int32_t (*get_data_subr_t)(const std::string&, 
                                    const std::string&,
@@ -118,13 +127,18 @@ typedef int32_t (*get_data_subr_t)(const std::string&,
                                    void*,
                                    void*,
                                    int);
+
 typedef struct _data {
         const char *m_data;
         uint32_t m_len;
         _data():
                 m_data(NULL),
                 m_len(0)
-        {}
+        {};
+        _data( const char *a_data, uint32_t a_len ):
+                m_data(a_data),
+                m_len(a_len)
+        {};
 } data_t;
 typedef struct _mutable_data {
         char *m_data;
@@ -213,6 +227,46 @@ struct data_t_case_hash
                 return l_hash; 
         }
 };
+struct str_hash {
+        inline std::size_t operator()(const std::string& a_key) const
+        {
+                return CityHash64(a_key.c_str(), a_key.length());
+        }
+};
+struct string_ci_compare_unordered
+{
+        bool operator()(const std::string& lhs, const std::string& rhs) const
+        {
+                if(lhs.length() != rhs.length()) { return false; }
+                return ::strcasecmp(lhs.c_str(), rhs.c_str()) == 0;
+        }
+};
+typedef struct _geoip_data{
+        double m_lat;
+        double m_long;
+        data_t m_cn_name;
+        data_t m_city_name;
+        data_t m_geo_cn2;
+        data_t m_geo_rcc;
+        data_t m_src_sd1_iso;
+        data_t m_src_sd2_iso;
+        bool m_is_anonymous_proxy;
+        uint32_t m_src_asn;
+
+        _geoip_data():
+                m_lat(0),
+                m_long(0),
+                m_cn_name(),
+                m_city_name(),
+                m_geo_cn2(),
+                m_geo_rcc(),
+                m_src_sd1_iso(),
+                m_src_sd2_iso(),
+                m_is_anonymous_proxy(false),
+                m_src_asn(0)
+        {}
+
+} geoip_data;
 // ---------------------------------------------------------
 // version string
 // ---------------------------------------------------------

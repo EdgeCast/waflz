@@ -15,8 +15,8 @@
 #include "rule.pb.h"
 #include "core/op.h"
 #include "core/macro.h"
-#include "op/nms.h"
-#include "op/ac.h"
+#include "waflz/nms.h"
+#include "waflz/ac.h"
 #include "op/byte_range.h"
 #include "support/ndebug.h"
 #include <string.h>
@@ -47,7 +47,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_BEGINSWITH);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_BEGINSWITH);
                 // -----------------------------------------
@@ -99,7 +99,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_CONTAINS);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_CONTAINS);
                 // -----------------------------------------
@@ -160,7 +160,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_CONTAINSWORD);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_CONTAINSWORD);
                 // -----------------------------------------
@@ -240,7 +240,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_DETECTSQLI);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_DETECTSQLI);
                 // -----------------------------------------
@@ -297,7 +297,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_DETECTXSS);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_DETECTXSS);
                 // -----------------------------------------
@@ -353,7 +353,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_ENDSWITH);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_ENDSWITH);
                 // -----------------------------------------
@@ -409,7 +409,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_EQ);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_EQ);
                 // -----------------------------------------
@@ -465,7 +465,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_GE);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_GE);
                 // -----------------------------------------
@@ -525,7 +525,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_GT);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_GT);
                 // -----------------------------------------
@@ -585,7 +585,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_LT);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_LT);
                 // -----------------------------------------
@@ -645,7 +645,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_LE);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_LT);
                 // -----------------------------------------
@@ -705,7 +705,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_IPMATCH);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_IPMATCH);
                 // -----------------------------------------
@@ -766,7 +766,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_IPMATCHF);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_IPMATCHF);
                 // -----------------------------------------
@@ -827,7 +827,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_IPMATCHFROMFILE);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_IPMATCHFROMFILE);
                 // -----------------------------------------
@@ -888,7 +888,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_PM);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_PM);
                 // -----------------------------------------
@@ -961,7 +961,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_PMF);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_PMF);
                 // -----------------------------------------
@@ -1034,7 +1034,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_PMFROMFILE);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_PMFROMFILE);
                 // -----------------------------------------
@@ -1107,7 +1107,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_RX);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_RX);
                 // -----------------------------------------
@@ -1178,7 +1178,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_STREQ);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_STREQ);
                 // -----------------------------------------
@@ -1259,7 +1259,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_STRMATCH);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_STRMATCH);
                 // -----------------------------------------
@@ -1320,7 +1320,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_VERIFYCC);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_VERIFYCC);
                 // -----------------------------------------
@@ -1379,7 +1379,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_VALIDATEBYTERANGE);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_VALIDATEBYTERANGE);
                 // -----------------------------------------
@@ -1447,7 +1447,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_VALIDATEUTF8ENCODING);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_VALIDATEUTF8ENCODING);
                 // -----------------------------------------
@@ -1498,7 +1498,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_VALIDATEURLENCODING);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_VALIDATEURLENCODING);
                 // -----------------------------------------
@@ -1549,7 +1549,7 @@ TEST_CASE( "test op", "[op]" ) {
                 l_cb = ns_waflz::get_op_cb(waflz_pb::sec_rule_t_operator_t_type_t_WITHIN);
                 REQUIRE((l_cb != NULL));
                 ns_waflz::macro l_macro;
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, NULL, false);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 1024, 1024, NULL, false);
                 waflz_pb::sec_rule_t_operator_t l_op;
                 l_op.set_type(waflz_pb::sec_rule_t_operator_t_type_t_WITHIN);
                 // -----------------------------------------

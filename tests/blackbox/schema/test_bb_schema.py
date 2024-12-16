@@ -27,7 +27,7 @@ def run_command(command):
 # setup waflz server in schema mode
 # ------------------------------------------------------------------------------
 @pytest.fixture()
-def setup_waflz_server_api_gw_mode():
+def setup_waflz_server_schema_mode():
     # ------------------------------------------------------
     # setup
     # ------------------------------------------------------
@@ -43,16 +43,16 @@ def setup_waflz_server_api_gw_mode():
     # ------------------------------------------------------
     # yield...
     # ------------------------------------------------------
-    yield setup_waflz_server_api_gw_mode
+    yield setup_waflz_server_schema_mode
     # ------------------------------------------------------
     # tear down
     # ------------------------------------------------------
     l_code, l_out, l_err = run_command('kill -9 %d'%(l_subproc.pid))
     time.sleep(0.5)
 # ----------------------------------------------------------
-# test rqst against api gateway config
+# test rqst against api schema config
 # ----------------------------------------------------------
-def test_api_gw(setup_waflz_server_api_gw_mode):
+def test_api_schema(setup_waflz_server_schema_mode):
     # ------------------------------------------------------
     # type error
     # ------------------------------------------------------
@@ -65,6 +65,11 @@ def test_api_gw(setup_waflz_server_api_gw_mode):
     l_r_json = l_r.json()
     assert l_r_json["rule_msg"] == "JSON Schema Validation Error"
     assert l_r_json["sub_event"][0]["rule_msg"] == "type"
+    assert l_r_json["sub_event"][0]["rule_id"] == 900118
+    assert l_r_json["sub_event"][0]["schema_error_location"] == \
+        "#/properties/favorite_numbers/items"
+    assert l_r_json["sub_event"][0]["body_schema_error_location"] == \
+        "#/favorite_numbers/2"
     # ------------------------------------------------------
     # pass
     # ------------------------------------------------------
@@ -74,6 +79,11 @@ def test_api_gw(setup_waflz_server_api_gw_mode):
     l_r_json = l_r.json()
     assert l_r_json["rule_msg"] == "JSON Schema Validation Error"
     assert l_r_json["sub_event"][0]["rule_msg"] == "minItems"
+    assert l_r_json["sub_event"][0]["rule_id"] == 900110
+    assert l_r_json["sub_event"][0]["schema_error_location"] == \
+        "#/properties/favorite_numbers"
+    assert l_r_json["sub_event"][0]["body_schema_error_location"] == \
+        "#/favorite_numbers"
     # ------------------------------------------------------
     # key val exceeds max
     # ------------------------------------------------------
@@ -83,6 +93,11 @@ def test_api_gw(setup_waflz_server_api_gw_mode):
     l_r_json = l_r.json()
     assert l_r_json["rule_msg"] == "JSON Schema Validation Error"
     assert l_r_json["sub_event"][0]["rule_msg"] == "uniqueItems"
+    assert l_r_json["sub_event"][0]["rule_id"] == 900111
+    assert l_r_json["sub_event"][0]["schema_error_location"] == \
+        "#/properties/favorite_numbers"
+    assert l_r_json["sub_event"][0]["body_schema_error_location"] == \
+        "#/favorite_numbers/1"
     # ------------------------------------------------------
     # Parse error
     # ------------------------------------------------------
@@ -91,6 +106,7 @@ def test_api_gw(setup_waflz_server_api_gw_mode):
     assert l_r.status_code == 200
     l_r_json = l_r.json()
     assert l_r_json["rule_msg"] == "JSON Schema Parsing Error"
+    assert l_r_json["sub_event"][0]["rule_id"] == 90001
     # ------------------------------------------------------
     # key val exceeds max
     # ------------------------------------------------------
@@ -101,4 +117,9 @@ def test_api_gw(setup_waflz_server_api_gw_mode):
     l_r_json = l_r.json()
     assert l_r_json["rule_msg"] == "JSON Schema Validation Error"
     assert l_r_json["sub_event"][0]["rule_msg"] == "minimum"
+    assert l_r_json["sub_event"][0]["rule_id"] == 900104
+    assert l_r_json["sub_event"][0]["schema_error_location"] == \
+        "#/properties/Employee_ID"
+    assert l_r_json["sub_event"][0]["body_schema_error_location"] == \
+        "#/Employee_ID"
 

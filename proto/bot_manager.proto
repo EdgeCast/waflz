@@ -1,0 +1,77 @@
+syntax = "proto2";
+package waflz_pb;
+import "action.proto";
+//: ----------------------------------------------------------------------------
+//: bot manager config
+//: ----------------------------------------------------------------------------
+message bot_manager {
+        // -------------------------------------------------
+        // properties
+        // -------------------------------------------------
+        optional string id = 1;
+        optional string name = 2;
+        optional string customer_id = 3;
+        optional string last_modified_date = 4;
+        optional string last_modified_by = 5;
+        optional bool team_config = 6;
+        // -------------------------------------------------
+        // action list
+        // -------------------------------------------------
+        message action_list_t {
+                optional enforcement BLOCK_REQUEST = 1;
+                optional enforcement CUSTOM_RESPONSE = 2;
+                optional enforcement BROWSER_CHALLENGE = 3;
+                optional enforcement ALERT = 4;
+                optional enforcement RECAPTCHA = 5;
+                optional enforcement REDIRECT_302 = 6;
+                optional enforcement DROP_REQUEST = 7;
+                optional enforcement IGNORE_ALERT = 8;
+                optional enforcement IGNORE_BLOCK = 9;
+                optional enforcement SILENT_CLOSE = 10;
+                optional enforcement NULL_ALERT = 11;
+                optional enforcement NULL_BLOCK = 12;
+                optional enforcement IGNORE_CUSTOM_RESPONSE = 13;
+                optional enforcement IGNORE = 14;
+        }
+        optional action_list_t actions = 10;
+        // -------------------------------------------------
+        // Bot exception list
+        // -------------------------------------------------
+        repeated string exception_url = 20;
+        repeated string exception_cookie = 21;
+        repeated string exception_ja3 = 22;
+        repeated string exception_user_agent = 23;
+        repeated string exception_ja4 = 24;
+        // -------------------------------------------------
+        // known bots
+        // -------------------------------------------------
+        message known_bot_t {
+                optional string bot_token = 1;
+                optional enforcement action = 2;
+                optional enforcement.type_t action_type = 3;
+                optional enforcement.type_t spoof_action_type = 4;
+                optional bool strict_match = 5;
+        }
+        optional bool inspect_known_bots = 50;
+        repeated known_bot_t known_bots = 51;
+        optional uint32 bot_score = 52;
+        optional enforcement spoof_bot_action = 53;
+        optional enforcement.type_t spoof_bot_action_type = 54;
+        // -------------------------------------------------
+        // known bot categories
+        // -------------------------------------------------
+        message category_entry_t {
+                optional string category = 1;
+                optional enforcement.type_t action_type = 2;
+                optional enforcement.type_t spoof_action_type = 3;
+                optional bool strict_match = 4;
+                repeated known_bot_t companies = 5;
+        }
+        repeated category_entry_t categories = 55;
+        //---------------------------------------------------
+        // bot rule and action
+        //---------------------------------------------------
+        optional string bots_prod_id = 60;
+        optional enforcement bots_prod_action = 62;
+        optional enforcement.type_t bots_prod_action_type = 63;
+}

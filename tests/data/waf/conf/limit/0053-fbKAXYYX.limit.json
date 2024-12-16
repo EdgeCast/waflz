@@ -2,6 +2,7 @@
     "id": "fbKAXYYX",
     "customer_id":"0053",
     "num": 2,
+    "count_hotfile": true,
     "duration_sec":2,
     "condition_groups":[
         {

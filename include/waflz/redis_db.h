@@ -46,7 +46,8 @@ public:
         //: ------------------------------------------------
         int32_t increment_key(int64_t &ao_result,
                               const char *a_key,
-                              uint32_t a_expires_ms);
+                              uint32_t a_expires_ms
+                              bool a_enable_pop_count);
         int32_t get_key(int64_t &ao_val, const char *a_key, uint32_t a_key_len);
         int32_t print_all_keys(void);
         int32_t set_opt(uint32_t a_opt, const void *a_buf, uint64_t a_len);

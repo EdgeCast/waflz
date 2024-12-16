@@ -30,7 +30,7 @@ TEST_CASE( "xml parse basic test", "[xml_parse_basic]" ) {
         // basic test
         // -------------------------------------------------
         SECTION("xml parse basic") {
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 8096, NULL, true);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 8096, 8096, NULL, true);
                 ns_waflz::parser_xml *l_p_xml = new ns_waflz::parser_xml(l_rqst_ctx);
                 l_rqst_ctx->m_body_parser = l_p_xml;
                 int32_t l_s;
@@ -67,7 +67,7 @@ TEST_CASE( "xml parse basic test", "[xml_parse_basic]" ) {
         // basic test
         // -------------------------------------------------
         SECTION("xml parse no xxe") {
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 8096, NULL, true);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 8096, 8096, NULL, true);
                 ns_waflz::parser_xml *l_p_xml = new ns_waflz::parser_xml(l_rqst_ctx);
                 l_rqst_ctx->m_body_parser = l_p_xml;
                 int32_t l_s;
@@ -104,7 +104,7 @@ TEST_CASE( "xml parse basic test", "[xml_parse_basic]" ) {
         // basic test
         // -------------------------------------------------
         SECTION("xml parse xxe") {
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 8096, NULL, true);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 8096, 8096, NULL, true);
                 ns_waflz::parser_xml *l_p_xml = new ns_waflz::parser_xml(l_rqst_ctx);
                 l_rqst_ctx->m_body_parser = l_p_xml;
                 l_p_xml->set_capture_xxe(true);
@@ -173,7 +173,7 @@ TEST_CASE( "xml parse basic test", "[xml_parse_basic]" ) {
         // basic test
         // -------------------------------------------------
         SECTION("xml parse with recursive entity replacements") {
-                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 8096, NULL, true);
+                ns_waflz::rqst_ctx *l_rqst_ctx = new ns_waflz::rqst_ctx(NULL, 8096, 8096, NULL, true);
                 ns_waflz::parser_xml *l_p_xml = new ns_waflz::parser_xml(l_rqst_ctx);
                 l_rqst_ctx->m_body_parser = l_p_xml;
                 l_p_xml->set_capture_xxe(true);

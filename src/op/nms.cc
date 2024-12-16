@@ -10,7 +10,7 @@
 //! ----------------------------------------------------------------------------
 //! includes
 //! ----------------------------------------------------------------------------
-#include "nms.h"
+#include "waflz/nms.h"
 #include <arpa/inet.h>
 #include <limits.h>
 #include <stdio.h>
@@ -144,7 +144,7 @@ int32_t nms::add(const char* a_buf, uint32_t a_buf_len)
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-int32_t nms::contains(bool &ao_match, const char* a_buf, uint32_t a_buf_len)
+int32_t nms::contains(bool &ao_match, const char* a_buf, uint32_t a_buf_len) const
 {
         if (strchr(a_buf, ':') == NULL)
         {
@@ -157,7 +157,7 @@ int32_t nms::contains(bool &ao_match, const char* a_buf, uint32_t a_buf_len)
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-nms::addr_t nms::detect_addr(const char* a_buf, uint32_t a_buf_len)
+nms::addr_t nms::detect_addr(const char* a_buf, uint32_t a_buf_len) const
 {
         nms::addr_t l_addr = nms::ADDR_NONE;
         int l_s;
@@ -426,7 +426,7 @@ int32_t nms::add_ipv6(const char* a_buf, uint32_t a_buf_len)
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-int32_t nms::contains_ipv4(bool &ao_match, const char* a_buf, uint32_t a_buf_len)
+int32_t nms::contains_ipv4(bool &ao_match, const char* a_buf, uint32_t a_buf_len) const
 {
         ao_match = false;
         if (!ipv4_arr)
@@ -464,7 +464,7 @@ int32_t nms::contains_ipv4(bool &ao_match, const char* a_buf, uint32_t a_buf_len
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-int32_t nms::contains_ipv6(bool &ao_match, const char* a_buf, uint32_t a_buf_len)
+int32_t nms::contains_ipv6(bool &ao_match, const char* a_buf, uint32_t a_buf_len) const
 {
         ao_match = false;
         if (!ipv6_arr)

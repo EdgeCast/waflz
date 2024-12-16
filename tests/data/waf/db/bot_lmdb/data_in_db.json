@@ -1,0 +1,48 @@
+
+[
+    {
+        "ip": "123.45.678.91",
+        "user_agent": "custom_ip_bot_score",
+        "score": "81"
+    },
+    {
+        "ip": "123.45.678.90",
+        "score": "82"
+    },
+    {
+        "ip": "123.45.0.90",
+        "user_agent": "custom_ip_bot_score",
+        "score": "83"
+    },
+    {
+        "ip": "123.45.0.90",
+        "score": "99"
+    },
+    {
+        "ja4": "t12i7512h2_479067518aa3_1188e8eced89",
+        "user_agent": "custom_bot_score",
+        "score": "75"
+    },
+    {
+        "ja4": "t12i7512h2_479067518aa3_1188e8eced89",
+        "user_agent": "other_user_agent",
+        "score": "85"
+    },
+    {
+        "ja4": "full_ja3_level",
+        "score": "99"
+    },
+    {
+        "ja4": "__na__",
+        "score": "100"
+    },
+    {
+        "asn": "60339",
+        "user_agent": "custom_bot_score",
+        "score": "65"
+    },
+    {
+        "asn": "60339",
+        "score": "75"
+    }
+]

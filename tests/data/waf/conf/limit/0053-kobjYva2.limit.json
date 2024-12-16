@@ -3,6 +3,7 @@
     "customer_id":"0053",
     "name": "GEO and ASN match",
     "num": 2,
+    "count_hotfile": false,
     "duration_sec":2,
     "condition_groups":[
         {

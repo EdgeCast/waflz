@@ -74,6 +74,7 @@ message profile {
                 optional bool is_regex = 4;
                 optional bool is_negated = 5;
                 optional string rule_id = 6;
+                repeated string rule_id_list = 7;
         }
         // -------------------------------------------------
         // disabled rule
@@ -83,6 +84,22 @@ message profile {
                 optional string rule_id = 2;                
         }
         // -------------------------------------------------
+        // custom_score_t
+        // -------------------------------------------------
+        message custom_score_t {
+                optional string rule_id = 1;                
+                optional uint32 score = 2;
+                repeated string rule_id_list = 3;                
+        }
+        // -------------------------------------------------
+        // redacted_var_t
+        // -------------------------------------------------
+        message redacted_var_t {
+                optional string match_on = 1;                
+                optional string replacement_name = 2;
+                optional string replacement_value = 3;
+        };
+        // -------------------------------------------------
         // properties
         // -------------------------------------------------
         optional string version = 1;
@@ -91,6 +108,7 @@ message profile {
         optional string customer_id = 4;
         optional string last_modified_date = 5;
         optional string last_modified_by = 6;
+        optional bool team_config = 8;
         // -------------------------------------------------
         //: ************ D E P R E C A T E D ***************
         // -------------------------------------------------
@@ -109,4 +127,11 @@ message profile {
         repeated disabled_rule_t disabled_rules = 212;
         repeated rule_target_update_t rule_target_updates = 213;
         repeated string policies = 214;
+        repeated redacted_var_t redacted_variables = 215;
+        repeated custom_score_t custom_scores = 216;
+        // -------------------------------------------------
+        // Autotune WAF settings
+        // -------------------------------------------------
+        optional bool autotune = 500;
+        optional string _autotune_meta = 510;
 }

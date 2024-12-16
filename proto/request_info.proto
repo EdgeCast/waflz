@@ -61,4 +61,12 @@ message request_info {
         optional bytes hostname = 21;
         repeated req_header_t request_headers = 22;
         optional bytes virt_ssl_client_ja3_md5 = 23;
+        optional string team_id = 24;
+        optional string env_id = 25;
+        optional uint32 backend_server_port  = 26;
+        optional bytes virt_ssl_client_ja4 = 27;
+        optional bytes virt_ssl_client_ja4_a = 28;
+        optional bytes virt_ssl_client_ja4_b = 29;
+        optional bytes virt_ssl_client_ja4_c = 30;
+	optional bytes virt_ssl_client_ja4h = 31;
 }

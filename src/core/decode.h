@@ -13,6 +13,7 @@
 //! includes
 //! ----------------------------------------------------------------------------
 #include "waflz/arg.h"
+#include "waflz/rqst_ctx.h"
 namespace ns_waflz {
 //! ----------------------------------------------------------------------------
 //! prototypes
@@ -21,7 +22,7 @@ int32_t css_decode(char **ao_buf, uint32_t &ao_len, const char *a_buf, uint32_t 
 int32_t html_entity_decode(char **ao_buf, uint32_t &ao_len, const char *a_buf, uint32_t a_len);
 int32_t js_decode_ns(char **ao_buf, uint32_t &ao_len, const char *a_buf, uint32_t a_len);
 int32_t normalize_path(char **ao_buf, uint32_t &ao_len, const char *a_buf, uint32_t a_len, bool a_is_windows);
-int32_t parse_args(arg_list_t &ao_arg_list, uint32_t &ao_invalid_cnt, const char *a_buf, uint32_t a_len, char a_arg_sep);
+int32_t parse_args(arg_list_t &ao_arg_list , data_unordered_map_t& ao_arg_map, uint32_t &ao_invalid_cnt, const char *a_buf, uint32_t a_len, char a_arg_sep);
 int32_t parse_cookies(const_arg_list_t &ao_cookie_list, const char *a_buf, uint32_t a_len);
 int32_t urldecode_ns(char **ao_buf, uint32_t &ao_len, uint32_t &ao_invalid_count, const char *a_buf, uint32_t a_len);
 int32_t urldecode_uni_ns(char **ao_buf, uint32_t &ao_len, const char *a_buf, uint32_t a_len);

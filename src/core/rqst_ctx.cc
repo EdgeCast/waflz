@@ -10,14 +10,15 @@
 //! ----------------------------------------------------------------------------
 //! includes
 //! ----------------------------------------------------------------------------
+#include <algorithm>
 #include "event.pb.h"
 #include "waflz/def.h"
 #include "waflz/rqst_ctx.h"
+#include "waflz/engine.h"
 #include "waflz/geoip2_mmdb.h"
 #include "waflz/string_util.h"
 #include "core/decode.h"
 #include "op/regex.h"
-#include "op/nms.h"
 #include "support/ndebug.h"
 #include "support/time_util.h"
 #include "parser/parser_url_encoded.h"
@@ -25,10 +26,18 @@
 #include "parser/parser_json.h"
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
+// ---------------------------------------------------------
+// openssl
+// ---------------------------------------------------------
+#include <openssl/sha.h>
 //! ----------------------------------------------------------------------------
 //! constants
 //! ----------------------------------------------------------------------------
 #define _DEFAULT_BODY_ARG_LEN_CAP 4096
+#define _JA4H_SHA256_HASH_LEN 32
+#define _JA4H_IND_SIZE 13
+#define _JA4H_SIZE 53
 //! ----------------------------------------------------------------------------
 //! macros
 //! ----------------------------------------------------------------------------
@@ -47,6 +56,7 @@ namespace ns_waflz {
 //! static
 //! ----------------------------------------------------------------------------
 uint32_t rqst_ctx::s_body_arg_len_cap = _DEFAULT_BODY_ARG_LEN_CAP;
+get_data_cb_t rqst_ctx::s_get_bot_ch_prob = NULL;
 //! ----------------------------------------------------------------------------
 //! \details TODO
 //! \return  TODO
@@ -222,14 +232,19 @@ static bool infer_is_json(const char *a_buf, uint32_t a_len)
 //! ----------------------------------------------------------------------------
 rqst_ctx::rqst_ctx(void *a_ctx,
                    uint32_t a_body_len_max,
+                   uint32_t a_body_api_sec_len_max,
                    const rqst_ctx_callbacks *a_callbacks,
                    bool a_parse_xml,
-                   bool a_parse_json):
+                   bool a_parse_json,
+                   void* a_srv,
+                   int a_module_id):
         m_an(),
+        m_team_id(),
         m_src_addr(),
         m_local_addr(),
         m_host(),
         m_port(0),
+        m_backend_port(0),
         m_scheme(),
         m_protocol(),
         m_line(),
@@ -241,7 +256,9 @@ rqst_ctx::rqst_ctx(void *a_ctx,
         m_query_str(),
         m_file_ext(),
         m_query_arg_list(),
+        m_query_arg_map(),
         m_body_arg_list(),
+        m_body_arg_map(),
         m_header_map(),
         m_header_list(),
         m_cookie_list(),
@@ -250,6 +267,7 @@ rqst_ctx::rqst_ctx(void *a_ctx,
         m_content_type_list(),
         m_uri_path_len(0),
         m_body_len_max(a_body_len_max),
+        m_body_api_sec_len_max(a_body_api_sec_len_max),
         m_body_data(NULL),
         m_body_len(0),
         m_content_length(0),
@@ -260,9 +278,26 @@ rqst_ctx::rqst_ctx(void *a_ctx,
         m_token(),
         m_resp_status(0),
         m_signal_enf(0),
-        m_log_request(false),
+        m_bot_score(0),
+        m_cust_id(0),
+        m_bot_tags(),
+        m_virt_ssl_client_ja3_md5(),
+        m_virt_ssl_client_ja4(),
+        m_virt_ssl_client_ja4_a(),
+        m_virt_ssl_client_ja4_b(),
+        m_virt_ssl_client_ja4_c(),
+        m_virt_ssl_client_ja4h(),
         m_use_spoof_ip(false),
+        m_hot_servers(0),
+        m_actual_hot_servers(0),
+        m_bot_score_key(),
+        m_falafel(false),
+        m_felafel(false),
+        m_known_bot(false),
+        m_waf_anomaly_score(0),
+        m_origin_signal_map(),
         m_limit(NULL),
+        m_audit_limit(NULL),
         m_body_parser(),
         // -------------------------------------------------
         // collections
@@ -287,6 +322,15 @@ rqst_ctx::rqst_ctx(void *a_ctx,
         m_skip_after(NULL),
         m_event(NULL),
         m_inspect_response(false),
+        m_inject_client_waf(false),
+        m_inspect_response_headers(false),
+        m_gather_bot_score(false),
+        m_client_protocol(),
+        m_has_cookie(false),
+        m_has_referer(false),
+        m_header_count(0),
+	m_has_accept_lang(false),
+	m_accept_lang(),
         // -------------------------------------------------
         // *************************************************
         // xml optimization
@@ -303,7 +347,25 @@ rqst_ctx::rqst_ctx(void *a_ctx,
         m_geo_cc_sd(),
         m_geo_data(),
         m_xml_capture_xxe(true),
-        m_ctx(a_ctx)
+        m_bot_ch(),
+        m_bot_js(),
+        m_challenge_difficulty(0),
+        m_ans(0),
+        m_recaptcha_site_key(),
+        m_recaptcha_secret_key(),
+        m_recaptcha_action_name(),
+        m_ec_resp_token(),
+        m_resp_token(false),
+        m_tp_subr_fail(false),
+        m_captcha_enf(NULL),
+        m_subr_resp(),
+        m_rqst_ts_s(0),
+        m_rqst_ts_ms(0),
+        m_ctx(a_ctx),
+        m_srv(a_srv),
+        m_module_id(a_module_id),
+        m_err_msg()
+
 {
 }
 //! ----------------------------------------------------------------------------
@@ -401,10 +463,12 @@ int32_t rqst_ctx::reset_phase_1()
                 }
                 m_query_arg_list.clear();
         }
+        m_query_arg_map.clear();
         // -------------------------------------------------
         // clear cookies
         // -------------------------------------------------
         m_cookie_list.clear();
+        m_cookie_map.clear();
         // -------------------------------------------------
         // clear headers
         // -------------------------------------------------
@@ -429,14 +493,60 @@ int32_t rqst_ctx::reset_phase_1()
         m_cookie_mutated.clear();
         m_init_phase_1 = false;
         m_intercepted = false;
-        return WAFLZ_STATUS_OK;
+        m_has_cookie = false;
+        m_has_referer = false;
+        m_header_count = 0;
+        m_has_accept_lang = false;
+        m_accept_lang.clear();
+        m_virt_ssl_client_ja4h.clear();
+	return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
 //! \details: TODO
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
+int32_t rqst_ctx::do_subrequest(const std::string& a_url,
+                                const std::string& a_secret,
+                                const std::string& a_token)
+{
+        int32_t l_s = WAFLZ_STATUS_ERROR;
+        if (m_callbacks && m_callbacks->m_get_subr_cb)
+        {
+                std::string l_post_params;
+                l_post_params.append("secret=");
+                l_post_params.append(a_secret);
+                l_post_params.append("&response=");
+                l_post_params.append(a_token);
+                l_s = m_callbacks->m_get_subr_cb(a_url,
+                                                 l_post_params,
+                                                 m_subr_resp,
+                                                 m_ctx,
+                                                 m_srv,
+                                                 m_module_id);
+                return l_s;
+        }
+        return l_s;
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+void rqst_ctx::set_recaptcha_fields(const std::string& a_site_key,
+                                    const std::string& a_secret_key,
+                                    const std::string& a_action_name)
+{
+        m_recaptcha_site_key = a_site_key;
+        m_recaptcha_secret_key = a_secret_key;
+        m_recaptcha_action_name = a_action_name;
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+int32_t rqst_ctx::init_phase_1(engine& a_engine,
                                const pcre_list_t *a_il_query,
                                const pcre_list_t *a_il_header,
                                const pcre_list_t *a_il_cookie)
@@ -452,6 +562,19 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
         {
                 int32_t l_s;
                 l_s = m_callbacks->m_get_cust_id_cb(&m_an, m_ctx);
+                if (l_s != 0)
+                {
+                        WAFLZ_PERROR(m_err_msg, "error in m_get_cust_id_cb callback");
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // set team id
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_team_id_cb)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_team_id_cb(m_team_id, m_ctx);
                 if (l_s != 0)
                 {
                         return WAFLZ_STATUS_ERROR;
@@ -471,7 +594,7 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                                              m_ctx);
                 if (l_s != 0)
                 {
-                        // TODO log reason???
+                        WAFLZ_PERROR(m_err_msg, "error in m_get_rqst_src_addr_cb callback");
                         return WAFLZ_STATUS_ERROR;
                 }
         }
@@ -484,7 +607,8 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
         if DATA_T_EXIST(m_src_addr)
         {
                 int32_t l_s;
-                l_s = get_geo_data_from_mmdb(a_geoip2_mmdb);
+                geoip2_mmdb& l_geoip_db = a_engine.get_geoip2_mmdb();
+                l_s = get_geo_data_from_mmdb(l_geoip_db);
                 if (l_s != WAFLZ_STATUS_OK)
                 {
 
@@ -504,7 +628,7 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                                                m_ctx);
                 if (l_s != 0)
                 {
-                        // TODO log reason???
+                        WAFLZ_PERROR(m_err_msg, "error in m_get_rqst_local_addr_cb callback");
                         return WAFLZ_STATUS_ERROR;
                 }
         }
@@ -522,7 +646,7 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                                          m_ctx);
                 if (l_s != 0)
                 {
-                        // TODO log reason???
+                        WAFLZ_PERROR(m_err_msg, "error in m_get_rqst_host_cb callback");
                         return WAFLZ_STATUS_ERROR;
                 }
         }
@@ -539,9 +663,7 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                                          m_ctx);
                 if (l_s != 0)
                 {
-                        // ---------------------------------
-                        // TODO log reason???
-                        // ---------------------------------
+                        WAFLZ_PERROR(m_err_msg, "error in m_get_rqst_port_cb callback");
                         return WAFLZ_STATUS_ERROR;
                 }
         }
@@ -559,9 +681,8 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                                            m_ctx);
                 if (l_s != 0)
                 {
-                        // ---------------------------------
-                        // TODO log reason???
-                        // ---------------------------------
+                        
+                        WAFLZ_PERROR(m_err_msg, "error in m_get_rqst_port_cb callback");
                         return WAFLZ_STATUS_ERROR;
                 }
         }
@@ -582,26 +703,6 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                         //return STATUS_ERROR;
                 }
         }
-#if 0
-        // -------------------------------------------------
-        // protocol
-        // -------------------------------------------------
-        if (s_get_rqst_protocol_cb)
-        {
-                int32_t l_s;
-                // -----------------------------------------
-                // get request port
-                // -----------------------------------------
-                l_s = s_get_rqst_protocol_cb(&m_protocol.m_data,
-                                              m_protocol.m_len,
-                                              m_ctx);
-                if (l_s != 0)
-                {
-                        // TODO log reason???
-                        return WAFLZ_STATUS_ERROR;
-                }
-        }
-#endif
         // -------------------------------------------------
         // hardcode protocol to http/1.1
         // -------------------------------------------------
@@ -735,6 +836,7 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                         // ---------------------------------
                         uint32_t l_invalid_cnt = 0;
                         l_s = parse_args(m_query_arg_list,
+                                         m_query_arg_map,
                                          l_invalid_cnt,
                                          m_query_str.m_data,
                                          m_query_str.m_len,
@@ -788,9 +890,20 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                 {
                         //WAFLZ_PERROR(m_err_msg, "performing s_get_rqst_header_size_cb");
                 }
+                m_header_count = l_hdr_size;
         }
+        // -------------------------------------------------
+        // ja4h vars
+        // -------------------------------------------------
+        // ref: https://blog.foxio.io/ja4+-network-fingerprinting
+        // -------------------------------------------------
+        std::string l_header_fields_str;
+        bool l_is_internal_header;
+        char l_ja4h_c[_JA4H_IND_SIZE] = {0};
+	char l_ja4h_d[_JA4H_IND_SIZE] = {0};
         for (uint32_t i_h = 0; i_h < l_hdr_size; ++i_h)
         {
+                l_is_internal_header = false;
                 const_arg_t l_hdr;
                 if (!m_callbacks || !m_callbacks->m_get_rqst_header_w_idx_cb)
                 {
@@ -810,11 +923,32 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                 {
                         continue;
                 }
-                // -----------------------------------------
+                // -------------------------------------------------
+                // Check if referer is present for ja4h
+                // -------------------------------------------------
+                bool l_is_referer_hdr = false;
+                if (strncasecmp(l_hdr.m_key, "Referer", sizeof("Referer")) == 0)
+                {
+                        l_is_referer_hdr = true;
+                        m_has_referer = true;
+                        m_header_count = m_header_count - 1; // ja4h - referer header removed from calculation
+                }
+                // -------------------------------------------------
+                // Check if Accept-Language header is present for ja4h
+                // -------------------------------------------------
+                if (strncasecmp(l_hdr.m_key, "Accept-Language", sizeof("Accept-Language")) == 0)
+                {
+                        m_has_accept_lang = true;
+                        m_accept_lang.append(l_hdr.m_val, l_hdr.m_val_len);
+                }
+                // -------------------------------------------------
                 // parse cookie header...
-                // -----------------------------------------
+                // -------------------------------------------------
+                bool l_is_cookie_hdr = false;
                 if (strncasecmp(l_hdr.m_key, "Cookie", sizeof("Cookie")) == 0)
                 {
+                        l_is_cookie_hdr = true;
+                        m_header_count = m_header_count - 1; // ja4h - cookie header removed from calculation
                         int32_t l_s;
                         // ---------------------------------
                         // parse...
@@ -826,6 +960,16 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                         {
                                 // TODO -log error???
                                 continue;
+                        }
+                        if (m_cookie_list.size() > 0)
+                        {
+                                m_has_cookie = true;
+                                // -------------------------------------------------
+                                // compute JA4H_C and JA4H_D
+                                // NOTE: this needs to be done on raw cookie list, 
+                                // before any cookie processing
+                                // -------------------------------------------------
+                                set_ja4h_c_d(l_ja4h_c, l_ja4h_d);
                         }
                         // ---------------------------------
                         // remove ignored
@@ -904,7 +1048,9 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                 }
                 // -----------------------------------------
                 // parse content-type header...
-                // e.g: Content-type:multipart/form-data; application/xml(asdhbc)  ;   aasdhhhasd;asdajj-asdad    ;; ;;"
+                // e.g: Content-type:multipart/form-data; 
+                // application/xml(asdhbc)  ;   
+                // aasdhhhasd;asdajj-asdad    ;; ;;"
                 // -----------------------------------------
                 if (strncasecmp(l_hdr.m_key, "Content-Type", sizeof("Content-Type") - 1) == 0)
                 {
@@ -918,7 +1064,73 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                 {
                         m_content_length = strntoul(l_hdr.m_val , l_hdr.m_val_len, NULL, 10);
                 }
+                // -----------------------------------------
+                // For RL, get hot server count to adjust the
+                // threshold if needed
+                // -----------------------------------------
+                if (strncasecmp(l_hdr.m_key, "X-EC-Hot-Servers", sizeof("X-EC-Hot-Servers") -1) == 0)
+                {
+                        m_hot_servers = strntoull(l_hdr.m_val , l_hdr.m_val_len, NULL, 10);
+                        l_is_internal_header = true;
+                }
+                // -----------------------------------------
+                // For RL, get actual hot server count to adjust the
+                // threshold if needed
+                // -----------------------------------------
+                if (strncasecmp(l_hdr.m_key, "X-EC-Actual-Hot-Servers", sizeof("X-EC-Actual-Hot-Servers") -1) == 0)
+                {
+                        m_actual_hot_servers = strntoull(l_hdr.m_val , l_hdr.m_val_len, NULL, 10);
+                        l_is_internal_header = true;
+                }
+                // -------------------------------------------------
+                // Exclude internal headers for ja4h calculation
+                // (ja4h_b)
+                // -------------------------------------------------
+                std::string l_internal_header_check;
+                l_internal_header_check.append(l_hdr.m_key, l_hdr.m_key_len);
+                to_lower_case(l_internal_header_check);
+                if (l_internal_header_check.find("x-ec") != std::string::npos  || l_internal_header_check.find("via") != std::string::npos
+                || l_internal_header_check.find("x-") != std::string::npos || l_internal_header_check.find("forwarded") != std::string::npos)
+                {
+                        l_is_internal_header = true;
+                        m_header_count = m_header_count - 1;
+                }
+                if (!l_is_cookie_hdr && !l_is_referer_hdr && !l_is_internal_header)
+                {
+                        l_header_fields_str.append(l_hdr.m_key, l_hdr.m_key_len);
+                        l_header_fields_str.append(",");
+                }
         }
+        if (l_header_fields_str.back() == ',') l_header_fields_str.pop_back();
+        // -------------------------------------------------
+        // Set Cookie fields to 0's if Cookie header is 
+        // missing
+        // -------------------------------------------------
+        if (!m_has_cookie)
+        {
+                strcat(l_ja4h_c, "000000000000");
+                strcat(l_ja4h_d, "000000000000");
+        }
+        // -------------------------------------------------
+        // compute JA4H_A and JA4H_B
+        // NOTE: JA4H_B is a hash of header fields(not values) 
+        // excluding Referer and Cookie
+        // -------------------------------------------------
+        std::string l_ja4h_a;
+        set_ja4h_a(l_ja4h_a);
+        char l_ja4h_b[_JA4H_IND_SIZE] = {0};
+        set_ja4h_b(l_header_fields_str, l_ja4h_b);
+        // -------------------------------------------------
+        // create the overall JA4H string
+        // -------------------------------------------------
+        std::string l_ja4h;
+        l_ja4h.reserve(_JA4H_SIZE);
+        snprintf(l_ja4h.data(), _JA4H_SIZE, "%.12s_%.12s_%.12s_%.12s",
+                l_ja4h_a.c_str(),
+                l_ja4h_b,
+                l_ja4h_c,
+                l_ja4h_d);
+        m_virt_ssl_client_ja4h.append(l_ja4h.c_str());
         // -------------------------------------------------
         // remove ignored
         // -------------------------------------------------
@@ -949,8 +1161,382 @@ int32_t rqst_ctx::init_phase_1(geoip2_mmdb &a_geoip2_mmdb,
                 }
                 m_apparent_cache_status = l_v;
         }
+        // -------------------------------------------------
+        // ja3 fingerprint
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_virt_ssl_client_ja3_md5)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_virt_ssl_client_ja3_md5(&m_virt_ssl_client_ja3_md5.m_data,
+                                                      &m_virt_ssl_client_ja3_md5.m_len,
+                                                      m_ctx);
+                if (l_s != 0)
+                {
+                        //WAFLZ_PERROR(m_err_msg, "performing m_get_virt_ssl_client_ja3_md5");
+                }
+                if ( m_virt_ssl_client_ja3_md5.m_len == 0 )
+                {
+                        m_virt_ssl_client_ja3_md5.m_data = "__na__";
+                        m_virt_ssl_client_ja3_md5.m_len = strlen(m_virt_ssl_client_ja3_md5.m_data);
+                }
+        }
+        // -------------------------------------------------
+        // ja4 fingerprint
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_virt_ssl_client_ja4)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_virt_ssl_client_ja4(&m_virt_ssl_client_ja4.m_data,
+                                                      &m_virt_ssl_client_ja4.m_len,
+                                                      m_ctx);
+                if (l_s != 0)
+                {
+                        //WAFLZ_PERROR(m_err_msg, "performing m_get_virt_ssl_client_ja4");
+                }
+                if ( m_virt_ssl_client_ja4.m_len == 0 )
+                {
+                        m_virt_ssl_client_ja4.m_data = "__na__";
+                        m_virt_ssl_client_ja4.m_len = strlen(m_virt_ssl_client_ja4.m_data);
+                }
+        }
+        // -------------------------------------------------
+        // ja4_a fingerprint
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_virt_ssl_client_ja4_a)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_virt_ssl_client_ja4_a(&m_virt_ssl_client_ja4_a.m_data,
+                                                      &m_virt_ssl_client_ja4_a.m_len,
+                                                      m_ctx);
+                if (l_s != 0)
+                {
+                        //WAFLZ_PERROR(m_err_msg, "performing m_get_virt_ssl_client_ja4_a");
+                }
+                if ( m_virt_ssl_client_ja4_a.m_len == 0 )
+                {
+                        m_virt_ssl_client_ja4_a.m_data = "__na__";
+                        m_virt_ssl_client_ja4_a.m_len = strlen(m_virt_ssl_client_ja4_a.m_data);
+                }
+        }
+        // -------------------------------------------------
+        // ja4_b fingerprint
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_virt_ssl_client_ja4_b)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_virt_ssl_client_ja4_b(&m_virt_ssl_client_ja4_b.m_data,
+                                                      &m_virt_ssl_client_ja4_b.m_len,
+                                                      m_ctx);
+                if (l_s != 0)
+                {
+                        //WAFLZ_PERROR(m_err_msg, "performing m_get_virt_ssl_client_ja4_b");
+                }
+                if ( m_virt_ssl_client_ja4_b.m_len == 0 )
+                {
+                        m_virt_ssl_client_ja4_b.m_data = "__na__";
+                        m_virt_ssl_client_ja4_b.m_len = strlen(m_virt_ssl_client_ja4_b.m_data);
+                }
+        }
+        // -------------------------------------------------
+        // ja4_c fingerprint
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_virt_ssl_client_ja4_c)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_virt_ssl_client_ja4_c(&m_virt_ssl_client_ja4_c.m_data,
+                                                      &m_virt_ssl_client_ja4_c.m_len,
+                                                      m_ctx);
+                if (l_s != 0)
+                {
+                        //WAFLZ_PERROR(m_err_msg, "performing m_get_virt_ssl_client_ja4_c");
+                }
+                if ( m_virt_ssl_client_ja4_c.m_len == 0 )
+                {
+                        m_virt_ssl_client_ja4_c.m_data = "__na__";
+                        m_virt_ssl_client_ja4_c.m_len = strlen(m_virt_ssl_client_ja4_c.m_data);
+                }
+        }
+        // -------------------------------------------------
+        // sf backend port
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_backend_port_cb)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_backend_port_cb(&m_backend_port, m_srv);
+                if (l_s != 0)
+                {
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // get bot score
+        // -------------------------------------------------
+        if (a_engine.get_use_bot_lmdb() && this->m_gather_bot_score)
+        {
+                if ( this->get_bot_score(a_engine.get_bot_lmdb()) != WAFLZ_STATUS_OK )
+                {
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
+        else if (a_engine.get_use_bot_lmdb_new())
+        {
+                if ( this->get_bot_score(a_engine.get_bot_lmdb(), true) != WAFLZ_STATUS_OK )
+                {
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
         m_init_phase_1 = true;
         return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+std::string rqst_ctx::get_substr(const std::string &input, char delimiter)
+{
+        size_t pos = input.find(delimiter);
+        if (pos == std::string::npos)
+        {
+                return ""; // Return an empty string if the delimiter is not found
+        }
+        return input.substr(pos + 1);
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+void rqst_ctx::remove_char(std::string &str, char ch)
+{
+        size_t pos = str.find(ch);
+        if (pos != std::string::npos)
+        {
+                str.erase(pos, 1);
+        }
+}
+//! ----------------------------------------------------------------------------
+//! \details: TODO
+//! \return:  TODO
+//! \param:   TODO
+//! ----------------------------------------------------------------------------
+void rqst_ctx::to_lower_case(std::string &str) 
+{
+        std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) 
+        {
+                return std::tolower(c);
+        });
+}
+//! ----------------------------------------------------------------------------
+//! \details: set ja4h_a for ja4h calculation
+//! \return:  none
+//! \param:   ja4h_a string
+//! ----------------------------------------------------------------------------
+void rqst_ctx::set_ja4h_a(std::string &a_ja4h_a)
+{
+        // -------------------------------------------------
+        // HTTP method bytes - GET = 'ge', PUT = 'pu' etc
+        // -------------------------------------------------
+        if(m_method.m_len > 0)
+        {
+                std::string l_method;
+                l_method.append(m_method.m_data, m_method.m_len);
+                to_lower_case(l_method);
+                a_ja4h_a.append(l_method.substr(0,2));
+        }
+        // -------------------------------------------------
+        // get client protocol via callback
+        // -------------------------------------------------
+        if (m_callbacks && m_callbacks->m_get_rqst_protocol_cb)
+        {
+                int32_t l_s;
+                l_s = m_callbacks->m_get_rqst_protocol_cb(&m_client_protocol.m_data,
+                                                      &m_client_protocol.m_len,
+                                                      m_ctx);
+                if (l_s != 0)
+                {
+                        WAFLZ_PERROR(m_err_msg, "error in m_get_rqst_protocol_cb, default to 1.1");
+                }
+        }
+        std::string l_version;
+        l_version.append(m_client_protocol.m_data, m_client_protocol.m_len);
+        uint8_t l_version_length = l_version.length();
+        // -------------------------------------------------
+        // HTTP protocol bytes, HTTP/1.1 = 11, HTTP/2.0 = 20
+        // HTTP/2 = 20, HTTP/3.0 = 30, default to 1.1
+        // -------------------------------------------------
+        if (l_version_length  < 1)
+        {
+                l_version = "11";
+        }
+        else if (l_version_length  == 1)
+        {
+                l_version += "0";
+        }
+        else
+        {
+                remove_char(l_version, '.');
+                if (l_version_length > 2)
+                {
+                        l_version = l_version.substr(0,2);
+                }
+        }
+        a_ja4h_a.append(l_version);
+        // -------------------------------------------------
+        // HTTP Cookie header present, if Cookie present - 
+        // 'c' else 'n'
+        // -------------------------------------------------
+        if (m_has_cookie)
+        {
+                a_ja4h_a += "c";
+        }
+        else
+        {
+                a_ja4h_a += "n";
+        }
+        // -------------------------------------------------
+        // HTTP referer, if referer present - 'r' else 'n'
+        // -------------------------------------------------
+        if (m_has_referer)
+        {
+                a_ja4h_a += "r";
+        }
+        else
+        {
+                a_ja4h_a += "n";
+        }
+        // -------------------------------------------------
+        // HTTP header count - minus Cookie and Referer 
+        // headers if present
+        // -------------------------------------------------
+        std::string l_header_count;
+        if(m_header_count < 10)
+        {
+                l_header_count += "0";
+        }
+        l_header_count += std::to_string(m_header_count);
+        a_ja4h_a.append(l_header_count);
+        // -------------------------------------------------
+        // HTTP check for Accept-Language - append first 4 
+        // chars or 0000 if not present, remove '-' if present
+        // -------------------------------------------------
+        if (m_has_accept_lang)
+        {
+                std::string l_accept_lang(m_accept_lang);
+                // -------------------------------------------------
+                // separate by comma, get the first language
+                // if contains * we include it
+                // -------------------------------------------------
+                size_t pos = l_accept_lang.find(',');
+                std::string l_first_lang = (pos == std::string::npos) ? l_accept_lang : l_accept_lang.substr(0, pos);
+                to_lower_case(l_first_lang);
+                // -------------------------------------------------
+                // trim leading and trailing whitespaces
+                // -------------------------------------------------
+                size_t l_lang_start = l_first_lang.find_first_not_of(' ');
+                size_t l_lang_end = l_first_lang.find_last_not_of(' ');
+                if (l_lang_start != std::string::npos && l_lang_end != std::string::npos)
+                {
+                        l_first_lang = l_first_lang.substr(l_lang_start, l_lang_end - l_lang_start + 1);
+                }
+                remove_char(l_first_lang, '-');
+                l_first_lang = l_first_lang.substr(0,4);
+                while (l_first_lang.length() < 4) 
+                {
+                        l_first_lang += '0';
+                }
+                a_ja4h_a.append(l_first_lang);
+        }
+        else
+        {
+                a_ja4h_a.append("0000");
+        }
+}
+//! ----------------------------------------------------------------------------
+//! \details: sets ja4h_b
+//! \return:  none
+//! \param:   header string, result string 
+//! ----------------------------------------------------------------------------
+void rqst_ctx::set_ja4h_b(const std::string &a_header_str, char* a_ja4h_b)
+{
+        unsigned char l_ja4h_b[_JA4H_SHA256_HASH_LEN] = {0};
+	if (a_header_str.length() > 0)
+        {
+                SHA256(reinterpret_cast <const unsigned char*>(a_header_str.c_str()), a_header_str.length(), l_ja4h_b);
+        }
+        for(auto i = 0; i < 6; ++i)
+	{
+		snprintf(&(a_ja4h_b[(i*2)]), 3, "%02x", l_ja4h_b[i]); // appends a null terminating char at the end
+	}
+}
+//! ----------------------------------------------------------------------------
+//! \details: sets ja4h_c and ja4h_d for ja4h calculation
+//! \return:  none
+//! \param:   result strings
+//! ----------------------------------------------------------------------------
+void rqst_ctx::set_ja4h_c_d(char* a_ja4h_c, char* a_ja4h_d)
+{
+        // -------------------------------------------------
+        // if cookie fields are empty set to 0's and return
+        // -------------------------------------------------
+        uint32_t l_c_len = m_cookie_list.size();
+        if (l_c_len == 0)
+        {
+                return;
+        }
+        std::vector<std::string> l_cookie_fields_sorted;
+        std::vector<std::string> l_cookie_fields_values_sorted;
+        // -------------------------------------------------
+        // sort the cookie fields and values
+        // -------------------------------------------------
+        for (const auto& l_cookie : m_cookie_list)
+        {
+                // -------------------------------------------------
+                // Create the cookie field string for ja4h_c
+                // -------------------------------------------------
+                std::string l_cookie_fields;
+                l_cookie_fields.append(l_cookie.m_key, l_cookie.m_key_len);
+                l_cookie_fields_sorted.push_back(std::move(l_cookie_fields));
+                std::sort(l_cookie_fields_sorted.begin(), l_cookie_fields_sorted.end());
+                // -----------------------------------------------------
+                // Create the cookie field and values string for ja4h_d
+                // ------------------------------------------------------
+                std::string l_cookie_fields_values;
+                l_cookie_fields_values.append(l_cookie.m_key, l_cookie.m_key_len);
+                l_cookie_fields_values += "=";
+                l_cookie_fields_values.append(l_cookie.m_val, l_cookie.m_val_len);
+                l_cookie_fields_values_sorted.push_back(std::move(l_cookie_fields_values));
+                std::sort(l_cookie_fields_values_sorted.begin(), l_cookie_fields_values_sorted.end());
+        }
+        std::string l_cookie_fields_conc;
+        std::string l_cookie_values_conc;
+        for (const auto& str : l_cookie_fields_sorted) 
+        {
+                l_cookie_fields_conc += str;
+                l_cookie_fields_conc += ",";
+        }
+        if (l_cookie_fields_conc.back() == ',') l_cookie_fields_conc.pop_back();
+        for (const auto& str : l_cookie_fields_values_sorted)
+        {
+                l_cookie_values_conc += str;
+                l_cookie_values_conc += ",";
+        }
+        if (l_cookie_values_conc.back() == ',') l_cookie_values_conc.pop_back();
+        unsigned char l_ja4h_c[_JA4H_SHA256_HASH_LEN] = {0};
+        unsigned char l_ja4h_d[_JA4H_SHA256_HASH_LEN] = {0};
+        if (l_cookie_fields_conc.length() > 0)
+        {
+                SHA256(reinterpret_cast <const unsigned char*>(l_cookie_fields_conc.c_str()), l_cookie_fields_conc.length(), l_ja4h_c);
+        }
+        if (l_cookie_values_conc.length() > 0)
+        {
+                SHA256(reinterpret_cast <const unsigned char*>(l_cookie_values_conc.c_str()), l_cookie_values_conc.length(), l_ja4h_d);
+        }
+        for(auto i = 0; i < 6; ++i)
+	{
+                snprintf(&(a_ja4h_c[(i*2)]), 3, "%02x", l_ja4h_c[i]); // appends a null terminating char at the end
+                snprintf(&(a_ja4h_d[(i*2)]), 3, "%02x", l_ja4h_d[i]); // appends a null terminating char at the end
+	}
 }
 //! ----------------------------------------------------------------------------
 //! \details: TODO
@@ -986,7 +1572,7 @@ int32_t rqst_ctx::init_phase_2(const ctype_parser_map_t &a_ctype_parser_map)
         // -------------------------------------------------
         uint32_t l_body_len;
         l_body_len = m_content_length > m_body_len_max ? m_body_len_max : m_content_length;
-        //NDBG_PRINT("body len %d\n", l_body_len);
+        // NDBG_PRINT("body len %d\n", l_body_len);
         // -------------------------------------------------
         // TODO -413 on > max???
         // -------------------------------------------------
@@ -1031,6 +1617,7 @@ int32_t rqst_ctx::init_phase_2(const ctype_parser_map_t &a_ctype_parser_map)
                 m_body_parser = NULL;
         }
         bool l_is_url_encoded = false;
+        bool l_is_multipart = false;
         // -------------------------------------------------
         // init parser...
         // -------------------------------------------------
@@ -1085,9 +1672,11 @@ int32_t rqst_ctx::init_phase_2(const ctype_parser_map_t &a_ctype_parser_map)
         // -------------------------------------------------
         case PARSER_MULTIPART:
         {
-                // TODO -fix???
-                m_init_phase_2 = true;
-                return WAFLZ_STATUS_OK;
+                // -----------------------------------------
+                // We buffer raw body without any parsing
+                // -----------------------------------------
+                l_is_multipart = true;
+                break;
         }
         // -------------------------------------------------
         // default
@@ -1101,7 +1690,8 @@ int32_t rqst_ctx::init_phase_2(const ctype_parser_map_t &a_ctype_parser_map)
                 return WAFLZ_STATUS_OK;
         }
         }
-        if (!m_body_parser)
+        if (!m_body_parser &&
+            !l_is_multipart)
         {
                 // -----------------------------------------
                 // do nothing...
@@ -1110,16 +1700,29 @@ int32_t rqst_ctx::init_phase_2(const ctype_parser_map_t &a_ctype_parser_map)
                 return WAFLZ_STATUS_OK;
         }
         // -------------------------------------------------
-        // init parser
+        // If json, pull up to m_body_api_sec_len_max worth
+        // of data since schema processes more
+        // Do not pull truncated body, since validation 
+        // fails for truncated json anyways
         // -------------------------------------------------
-        l_s = m_body_parser->init();
-        if (l_s != WAFLZ_STATUS_OK)
+        if(m_json_body && m_content_length <= m_body_api_sec_len_max) 
         {
-                // -----------------------------------------
-                // do nothing...
-                // -----------------------------------------
-                //NDBG_PRINT("error m_body_parser->init()\n");
-                return WAFLZ_STATUS_ERROR;
+                l_body_len = m_content_length;
+        }
+        // -------------------------------------------------
+        // init parser if not multipart
+        // -------------------------------------------------
+        if (!l_is_multipart)
+        {
+                l_s = m_body_parser->init();
+                if (l_s != WAFLZ_STATUS_OK)
+                {
+                        // -----------------------------------------
+                        // do nothing...
+                        // -----------------------------------------
+                        //NDBG_PRINT("error m_body_parser->init()\n");
+                        return WAFLZ_STATUS_ERROR;
+                }
         }
         // -------------------------------------------------
         // allocate max body size
@@ -1162,7 +1765,8 @@ int32_t rqst_ctx::init_phase_2(const ctype_parser_map_t &a_ctype_parser_map)
                 // content. We only check for json structure. Can
                 // extend it to xml if this fixes some false positives
                 // -------------------------------------------------
-                if (l_is_url_encoded)
+                if (l_is_url_encoded &&
+                    !l_is_multipart)
                 {
                         if (infer_is_json(l_buf, l_rd_count))
                         {
@@ -1187,37 +1791,61 @@ int32_t rqst_ctx::init_phase_2(const ctype_parser_map_t &a_ctype_parser_map)
                         l_is_url_encoded = false;
                 }
                 // -----------------------------------------
-                // process chunk
+                // If processing is not done...
+                // Note: If body len < body len max, 
+                // outer for-loop exits before this
                 // -----------------------------------------
-                l_s = m_body_parser->process_chunk(l_buf, l_rd_count);
-                if (l_s != WAFLZ_STATUS_OK)
+                if( l_rd_count_total < m_body_len_max &&
+                    !l_is_multipart)
                 {
                         // ---------------------------------
+                        // If adding next chunk puts you out
+                        // of body len max, process diff
+                        // ---------------------------------
+                        if(l_rd_count_total + l_rd_count > m_body_len_max) 
+                        {
+                                l_s = m_body_parser->process_chunk(l_buf, m_body_len_max - l_rd_count_total);
+                        }
+                        // ---------------------------------
+                        // otherwise, process next chunk
+                        // as usual
+                        // ---------------------------------
+                        else
+                        {
+                                l_s = m_body_parser->process_chunk(l_buf,l_rd_count);
+                        }
+                        if (l_s != WAFLZ_STATUS_OK)
+                        {
+                                // ---------------------------------
+                                // Set request body error var in
+                                // tx map and return
+                                // ---------------------------------
+                                //NDBG_PRINT("error m_body_parser->process_chunk()\n");
+                                m_cx_tx_map["REQBODY_ERROR"] = "1";
+                                m_init_phase_2 = true;
+                                return WAFLZ_STATUS_OK;
+                        }
+                }
+                l_rd_count_total += l_rd_count;
+                // NDBG_PRINT("read: %6d / %6d\n", (int)l_rd_count, l_rd_count_total);
+        }
+        m_body_len = l_rd_count_total;
+        // -------------------------------------------------
+        // finish if parser was invoked
+        // -------------------------------------------------
+        if (!l_is_multipart)
+        {
+                l_s = m_body_parser->finish();
+                if (l_s != WAFLZ_STATUS_OK)
+                {
+                        // -----------------------------------------
                         // Set request body error var in
                         // tx map and return
-                        // ---------------------------------
-                        //NDBG_PRINT("error m_body_parser->process_chunk()\n");
+                        // -----------------------------------------
                         m_cx_tx_map["REQBODY_ERROR"] = "1";
                         m_init_phase_2 = true;
                         return WAFLZ_STATUS_OK;
                 }
-                l_rd_count_total += l_rd_count;
-                //NDBG_PRINT("read: %6d / %6d\n", (int)l_rd_count, l_rd_count_total);
-        }
-        m_body_len = l_rd_count_total;
-        // -------------------------------------------------
-        // finish
-        // -------------------------------------------------
-        l_s = m_body_parser->finish();
-        if (l_s != WAFLZ_STATUS_OK)
-        {
-                // -----------------------------------------
-                // Set request body error var in
-                // tx map and return
-                // -----------------------------------------
-                m_cx_tx_map["REQBODY_ERROR"] = "1";
-                m_init_phase_2 = true;
-                return WAFLZ_STATUS_OK;
         }
         // -------------------------------------------------
         // cap the arg list size
@@ -1302,6 +1930,261 @@ int32_t rqst_ctx::get_geo_data_from_mmdb(geoip2_mmdb &a_geoip2_mmdb)
         return WAFLZ_STATUS_OK;
 }
 //! ----------------------------------------------------------------------------
+//! \details gets the bot score from the bot db
+//! \return  waflz status
+//! \param
+//! -----------------------------------------------------------------------------
+int32_t rqst_ctx::get_score_from_key(kv_db& a_bot_db, const std::string_view& a_db_key, bool a_new_db)
+{
+        // -------------------------------------------------
+        // hash string 
+        // -------------------------------------------------
+        uint64_t l_db_hash = CityHash64(a_db_key.data(), a_db_key.length());
+        // -------------------------------------------------
+        // DEBUG: used to see key being sent
+        // -------------------------------------------------
+        // NDBG_PRINT("looking for '%s' -> '%lu'\n", a_db_key.data(),
+        //            l_db_hash);
+        // -------------------------------------------------
+        // get result from db
+        // -------------------------------------------------
+        int32_t l_s;
+        if (a_new_db)
+        {
+                this->m_bot_tags.clear();
+                lm_bot_val_t l_bot_val = {0,0,nullptr};
+                uint32_t l_dummy_val = 0;
+                l_s = a_bot_db.get_key(&l_db_hash, sizeof(l_db_hash),
+                                       l_dummy_val, &l_bot_val, true);
+                if (l_s == WAFLZ_STATUS_ERROR)
+                {
+                        WAFLZ_PERROR(m_err_msg, "%s", a_bot_db.get_err_msg());
+                }
+                else
+                {
+                        this->m_bot_score = l_bot_val.m_score;
+                        this->m_cust_id = l_bot_val.m_cust_id;
+                        if (l_bot_val.m_tags && l_bot_val.m_tags[0] !='\0')
+                        {
+                                // -------------------------------------------------
+                                // NOTE: assign deletes the underlying memory
+                                // -------------------------------------------------
+                                this->m_bot_tags.assign(l_bot_val.m_tags);
+                                if (l_bot_val.m_tags)
+                                {
+                                        delete []l_bot_val.m_tags;
+                                        l_bot_val.m_tags = nullptr;
+                                }
+                        }
+                        // -----------------------------------------
+                        // DEBUG: used to see key that matched
+                        // -----------------------------------------
+                        // NDBG_PRINT("found entry {%u,%u,%s} with key %s\n",
+                        //         this->m_bot_score,
+                        //         this->m_cust_id,
+                        //         this->m_bot_tags.c_str(),
+                        //         this->m_bot_score_key.c_str());
+
+                }
+        }
+        else
+        {
+                l_s = a_bot_db.get_key(&l_db_hash, sizeof(l_db_hash),
+                                       this->m_bot_score);
+        }
+        // -------------------------------------------------
+        // if we get a match in the database
+        // -------------------------------------------------
+        if (this->m_bot_score > 0)
+        {
+                // -----------------------------------------
+                // set bot_score_key to the key found
+                // -----------------------------------------
+                this->m_bot_score_key = a_db_key;
+                // -----------------------------------------
+                // DEBUG: used to see key that matched
+                // -----------------------------------------
+                // NDBG_PRINT("found score %u with key %s\n",
+                //            this->m_bot_score,
+                //            this->m_bot_score_key.c_str());
+        }
+        // -------------------------------------------------
+        // set error if found
+        // -------------------------------------------------
+        if (l_s == WAFLZ_STATUS_ERROR)
+        {
+                WAFLZ_PERROR(m_err_msg, "%s", a_bot_db.get_err_msg());
+        }
+        // -------------------------------------------------
+        // return status from get_key
+        // -------------------------------------------------
+        return l_s;
+}
+//! ----------------------------------------------------------------------------
+//! \details gets the bot score for a level (ie: Ja4/Asn/ip) from the bot db
+//! \return  waflz status
+//! \param
+//! -----------------------------------------------------------------------------
+int32_t rqst_ctx::get_score_for_level(kv_db& a_bot_db,
+                                      const std::string& a_level_string,
+                                      const std::string& a_user_agent,
+                                      bool a_new_db)
+{
+        // -------------------------------------------------
+        // quick return if no level string
+        // -------------------------------------------------
+        if (a_level_string.length() == 0)
+        {
+                return WAFLZ_STATUS_OK;
+        }
+        // -------------------------------------------------
+        // status variable
+        // -------------------------------------------------
+        int32_t l_s;
+        // -------------------------------------------------
+        // try level + user agent for most specific key
+        // -------------------------------------------------
+        if (!a_user_agent.empty())
+        {
+                // -----------------------------------------
+                // construct db key + get value
+                // -----------------------------------------
+                l_s = this->get_score_from_key(a_bot_db, a_level_string + ":" + a_user_agent, a_new_db);
+                if (l_s != WAFLZ_STATUS_OK)
+                {
+                        // NDBG_PRINT("error performing get_key: Reason: %s\n", a_bot_db.get_err_msg());
+                        return WAFLZ_STATUS_ERROR;
+                }
+        }
+        // -------------------------------------------------
+        // return value in db if found
+        // -------------------------------------------------
+        if (this->m_bot_score > 0)
+        {
+                return WAFLZ_STATUS_OK;
+        }
+        // -------------------------------------------------
+        // try just getting the level
+        // -------------------------------------------------
+        l_s = this->get_score_from_key(a_bot_db, a_level_string, a_new_db);
+        if (l_s != WAFLZ_STATUS_OK)
+        {
+                // NDBG_PRINT("error performing get_key: Reason: %s\n", a_bot_db.get_err_msg());
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // return status ok regardless of score found
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details set bot score
+//! \return  waflz status
+//! \param
+//! -----------------------------------------------------------------------------
+int32_t rqst_ctx::get_bot_score(kv_db& a_bot_db, bool a_new_db)
+{
+        // -------------------------------------------------
+        // clear out any existing bot score
+        // -------------------------------------------------
+        this->m_bot_score = 0;
+        // -------------------------------------------------
+        // result vars
+        // -------------------------------------------------
+        int32_t l_s;
+        // -------------------------------------------------
+        // get user-agent from request
+        // -------------------------------------------------
+        const data_t* l_user_agent_data = this->get_header(std::string_view("User-Agent"));
+        std::string l_user_agent = (l_user_agent_data != nullptr) ?
+                std::string(l_user_agent_data->m_data, l_user_agent_data->m_len)
+                : std::string();
+        // -------------------------------------------------
+        // check for IP level in bot db
+        // -------------------------------------------------
+        std::string l_ip(this->m_src_addr.m_data, this->m_src_addr.m_len);
+        l_s = this->get_score_for_level(a_bot_db, l_ip, l_user_agent, a_new_db);
+        if (l_s != WAFLZ_STATUS_OK)
+        {
+                // NDBG_PRINT("error performing get_key: Reason: %s\n", a_bot_db.get_err_msg());
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // return value in db if found
+        // -------------------------------------------------
+        if (this->m_bot_score > 0)
+        {
+                return WAFLZ_STATUS_OK;
+        }
+        // -------------------------------------------------
+        // check for Ja4 in bot db
+        // -------------------------------------------------
+        std::string l_ja4(this->m_virt_ssl_client_ja4.m_data,
+                          this->m_virt_ssl_client_ja4.m_len);
+        l_s = this->get_score_for_level(a_bot_db, l_ja4, l_user_agent, a_new_db);
+        if (l_s != WAFLZ_STATUS_OK)
+        {
+                // NDBG_PRINT("error performing get_key: Reason: %s\n", a_bot_db.get_err_msg());
+                return WAFLZ_STATUS_ERROR;
+        }
+        // -------------------------------------------------
+        // return regardless if a score was found
+        // -------------------------------------------------
+        return WAFLZ_STATUS_OK;
+}
+//! ----------------------------------------------------------------------------
+//! \details TODO
+//! \return  TODO
+//! \param   TODO
+//! ----------------------------------------------------------------------------
+const data_t* rqst_ctx::get_header(const std::string_view& header_name)
+{
+        // -------------------------------------------------
+        // construct search data_t
+        // -------------------------------------------------
+        data_t l_search_data;
+        l_search_data.m_data = header_name.data();
+        l_search_data.m_len = header_name.length();
+        // -------------------------------------------------
+        // search for header
+        // -------------------------------------------------
+        data_unordered_map_t::const_iterator i_search_results = m_header_map.find(l_search_data);
+        // -------------------------------------------------
+        // return results or NULL
+        // -------------------------------------------------
+        if (i_search_results == m_header_map.end())
+        {
+                return NULL;
+        }
+        return &(i_search_results->second);
+}
+//! ----------------------------------------------------------------------------
+//! \details TODO
+//! \return  TODO
+//! \param   TODO
+//! ----------------------------------------------------------------------------
+const data_t* rqst_ctx::get_header(const std::string& header_name)
+{
+        // -------------------------------------------------
+        // construct search data_t
+        // -------------------------------------------------
+        data_t l_search_data;
+        l_search_data.m_data = header_name.c_str();
+        l_search_data.m_len = header_name.length();
+        // -------------------------------------------------
+        // search for header
+        // -------------------------------------------------
+        data_unordered_map_t::const_iterator i_search_results = m_header_map.find(l_search_data);
+        // -------------------------------------------------
+        // return results or NULL
+        // -------------------------------------------------
+        if (i_search_results == m_header_map.end())
+        {
+                return NULL;
+        }
+        return &(i_search_results->second);
+}
+//! ----------------------------------------------------------------------------
 //! \details TODO
 //! \return  TODO
 //! \param   TODO
@@ -1316,10 +2199,10 @@ int32_t rqst_ctx::append_rqst_info(waflz_pb::event &ao_event, geoip2_mmdb &a_geo
         // Epoch time
         // -------------------------------------------------
         uint32_t l_now_s = get_time_s();
-        uint32_t l_now_ms = get_time_ms();
+        uint32_t l_now_us = get_time_us();
         waflz_pb::request_info_timespec_t *l_epoch = l_request_info->mutable_epoch_time();
         l_epoch->set_sec(l_now_s);
-        l_epoch->set_nsec(l_now_ms);
+        l_epoch->set_nsec(l_now_us * 1000);
         // -------------------------------------------------
         // set headers...
         // -------------------------------------------------
@@ -1340,6 +2223,10 @@ int32_t rqst_ctx::append_rqst_info(waflz_pb::event &ao_event, geoip2_mmdb &a_geo
 #define _SET_IF_EXIST_INT(_field, _proto) do { \
                 l_request_info->set_##_proto(_field); \
         } while (0)
+#define _SET_IF_EXIST_STD_STR(_field, _proto) do { \
+        if (!_field.empty()) { \
+                l_request_info->set_##_proto(_field.c_str(), _field.length()); \
+        } } while (0)
         // -------------------------------------------------
         // headers...
         // -------------------------------------------------
@@ -1352,28 +2239,21 @@ int32_t rqst_ctx::append_rqst_info(waflz_pb::event &ao_event, geoip2_mmdb &a_geo
         _SET_HEADER("X-Forwarded-For", x_forwarded_for);
         _SET_HEADER("Content-Type", content_type);
         // -------------------------------------------------
-        // Append all headers if rqst_ctx is marked for logging
-        // -------------------------------------------------
-        if (m_log_request)
-        {
-                for (data_unordered_map_t::const_iterator i_h = m_header_map.begin();
-                    i_h != m_header_map.end();
-                    ++i_h)
-                {
-                        waflz_pb::request_info::req_header_t *l_req_header = l_request_info->add_request_headers();
-                        l_req_header->set_key(i_h->first.m_data, i_h->first.m_len);
-                        l_req_header->set_value(i_h->second.m_data, i_h->second.m_len);
-                }
-        }
-        // -------------------------------------------------
         // others...
         // -------------------------------------------------
         _SET_IF_EXIST_STR(m_src_addr, virt_remote_host);
         _SET_IF_EXIST_INT(m_port, server_canonical_port);
+        _SET_IF_EXIST_INT(m_backend_port, backend_server_port);
         _SET_IF_EXIST_STR(m_uri, orig_url);
         _SET_IF_EXIST_STR(m_url, url);
         _SET_IF_EXIST_STR(m_query_str, query_string);
         _SET_IF_EXIST_STR(m_method, request_method);
+        _SET_IF_EXIST_STR(m_virt_ssl_client_ja3_md5, virt_ssl_client_ja3_md5);
+        _SET_IF_EXIST_STR(m_virt_ssl_client_ja4, virt_ssl_client_ja4);
+        _SET_IF_EXIST_STR(m_virt_ssl_client_ja4_a, virt_ssl_client_ja4_a);
+        _SET_IF_EXIST_STR(m_virt_ssl_client_ja4_b, virt_ssl_client_ja4_b);
+        _SET_IF_EXIST_STR(m_virt_ssl_client_ja4_c, virt_ssl_client_ja4_c);
+	_SET_IF_EXIST_STD_STR(m_virt_ssl_client_ja4h, virt_ssl_client_ja4h);
         // -------------------------------------------------
         // Local address
         // -------------------------------------------------
@@ -1434,7 +2314,8 @@ int32_t rqst_ctx::append_rqst_info(waflz_pb::event &ao_event, geoip2_mmdb &a_geo
         // -------------------------------------------------
         // Customer ID
         // -------------------------------------------------
-        if (m_callbacks && m_callbacks->m_get_cust_id_cb)
+        if (m_callbacks && m_callbacks->m_get_cust_id_cb &&
+            !m_falafel && !m_felafel)
         {
                 uint32_t l_cust_id;
                 l_s =  m_callbacks->m_get_cust_id_cb(&l_cust_id, m_ctx);
@@ -1443,6 +2324,41 @@ int32_t rqst_ctx::append_rqst_info(waflz_pb::event &ao_event, geoip2_mmdb &a_geo
                         //WAFLZ_PERROR(m_err_msg, "performing s_get_cust_id_cb");
                 }
                 l_request_info->set_customer_id(l_cust_id);
+        }
+        // -------------------------------------------------
+        // team ID
+        // -------------------------------------------------
+        if (!m_team_id.empty() && !m_falafel & !m_felafel)
+        {
+                l_request_info->set_team_id(m_team_id);
+                // -----------------------------------------
+                // if we are dealing with team id, throw in
+                // env id as well
+                // -----------------------------------------
+                if (m_callbacks && m_callbacks->m_get_env_id_cb)
+                {
+                        std::string l_env_id;
+                        l_s =  m_callbacks->m_get_env_id_cb(l_env_id, m_ctx);
+                        if (l_s != 0)
+                        {
+                                //WAFLZ_PERROR(m_err_msg, "performing get_env_id_cb");
+                        }
+                        l_request_info->set_env_id(l_env_id);
+                }
+        }
+        // -------------------------------------------------
+        // if falafel set custom id for logging
+        // -------------------------------------------------
+        if(m_falafel)
+        {
+                l_request_info->set_customer_id(4196072978);
+        }
+        // -------------------------------------------------
+        // if falafel set custom id for logging
+        // -------------------------------------------------
+        if(m_felafel)
+        {
+                l_request_info->set_customer_id(4263181842);
         }
         // -------------------------------------------------
         // GEOIP info
@@ -1512,36 +2428,96 @@ int32_t rqst_ctx::set_src_ip_from_spoof_header(const std::string& a_header)
         // -------------------------------------------------
         // search map for spoof header
         // -------------------------------------------------
-        data_unordered_map_t::const_iterator i_header = m_header_map.find(l_search_header);
+        auto i_header = m_header_map.find(l_search_header);
         // -------------------------------------------------
         // if found, set ip to spoof
         // -------------------------------------------------
         if (i_header != m_header_map.end())
         {
+            nms l_checker;
+            if (strncasecmp(i_header->first.m_data, "X-Forwarded-For", i_header->first.m_len) == 0)
+            {
+                // ---------------------------------
+                // store the header in string, nms
+                // add_ipv4 doesnt check for len of buffer
+                // as a result string_view always fails
+                // ---------------------------------
+                std::string l_xff_ip = i_header->second.m_data;
+                data_t l_header_val = i_header->second;
+                // ---------------------------------
+                // parse the X-Forwarded-For header
+                // if it has multiple ips, use the leftmost
+                // ---------------------------------
+                std::string_view l_xff_header(i_header->second.m_data, i_header->second.m_len);
+                size_t l_end = l_xff_header.find(',');
+                if (l_end != std::string::npos)
+                {
+                    std::string_view l_ip = l_xff_header.substr(0, l_end);
+                    // -------------------------
+                    // trim leading and trailing
+                    // whitespaces
+                    // -------------------------
+                    size_t l_ip_start = l_ip.find_first_not_of(' ');
+                    size_t l_ip_end = l_ip.find_last_not_of(' ');
+                    if (l_ip_start != std::string::npos && l_ip_end != std::string::npos)
+                    {
+                        l_ip = l_ip.substr(l_ip_start, l_ip_end - l_ip_start + 1);
+                    }
+                    // ---------------------------------
+                    // set src addr for the leftmost IP address
+                    // ---------------------------------
+                    l_header_val.m_data = l_ip.data();
+                    l_header_val.m_len = l_ip.length();
+                    // -----------------------------------------
+                    // store the leftmost ip address for validation
+                    // -----------------------------------------
+                    l_xff_ip = l_ip;
+                }
                 // -----------------------------------------
                 // validate ip
                 // -----------------------------------------
-                nms l_checker;
+                int32_t l_s = l_checker.add(l_xff_ip.c_str(), l_xff_ip.length());
+                // -----------------------------------------
+                // if not valid, using true src ip
+                // -----------------------------------------
+                if (l_s == WAFLZ_STATUS_ERROR)
+                {
+                    return WAFLZ_STATUS_ERROR;
+                }
+                // -----------------------------------------
+                // we reached here so we have a valid ip
+                // -----------------------------------------
+                set_src_addr(l_header_val);
+                m_use_spoof_ip = true;
+                return WAFLZ_STATUS_OK;
+            }
+            else
+            {
+                // -----------------------------------------
+                // validate ip
+                // -----------------------------------------
                 int32_t l_s = l_checker.add(i_header->second.m_data, i_header->second.m_len);
                 // -----------------------------------------
                 // if not valid, using true src ip
                 // -----------------------------------------
                 if (l_s == WAFLZ_STATUS_ERROR)
                 {
-                        return WAFLZ_STATUS_ERROR;
+                    return WAFLZ_STATUS_ERROR;
                 }
                 // -----------------------------------------
-                // if valid, set spoof
+                // we reached here so we have a valid ip
                 // -----------------------------------------
                 set_src_addr(i_header->second);
                 m_use_spoof_ip = true;
                 return WAFLZ_STATUS_OK;
+            }
         }
         // -------------------------------------------------
         // if not found, return error
         // -------------------------------------------------
         return WAFLZ_STATUS_ERROR;
 }
+
 //! ----------------------------------------------------------------------------
 //! \details: TODO
 //! \return:  TODO

@@ -43,6 +43,12 @@ typedef struct db_stats {
         uint64_t m_res_mem_used;
         uint64_t m_num_entries;
 }db_stats_t;
+// bot db val
+typedef struct lm_bot_val {
+        uint32_t m_score;
+        uint32_t m_cust_id;
+        char* m_tags;
+} lm_bot_val_t;
 //! ----------------------------------------------------------------------------
 //! Priority queue sorting
 //! ----------------------------------------------------------------------------
@@ -66,16 +72,28 @@ public:
         kv_db(void): m_init(false), m_err_msg() {};
         virtual ~kv_db() {};
         virtual int32_t init(void) = 0;
+        virtual int32_t init_read_mode(void) = 0;
         virtual int32_t increment_key(int64_t &ao_result,
                               const char *a_key,
-                              uint32_t a_expires_ms) = 0;
+                              uint32_t a_expires_ms,
+                              bool a_enable_pop_count,
+                              bool& a_has_pop_count) = 0;
+        virtual int32_t load_bot_file(const std::string& a_js_file_path, bool new_bot_format=false) = 0;
         virtual int32_t get_key(int64_t &ao_val, const char *a_key, uint32_t a_key_len) = 0;
+        virtual int32_t get_full_count_for_rl_key(int64_t& ao_val,
+                                                  const char* a_key,
+                                                  uint32_t a_key_len,
+                                                  bool a_missing_error) = 0;
+        virtual int32_t get_key(void* a_key, uint32_t a_key_len, uint32_t& ao_val, lm_bot_val* a_bot_val = nullptr, bool new_bot_format = false) = 0;
+        virtual int32_t put_key(void* a_key, uint32_t a_key_len, void* a_val, uint32_t a_val_len) = 0;
         virtual int32_t print_all_keys(void) = 0;
         virtual int32_t set_opt(uint32_t a_opt, const void *a_buf, uint64_t a_len) = 0;
         virtual int32_t get_opt(uint32_t a_opt, void **a_buf, uint32_t *a_len) = 0;
         virtual int32_t get_db_stats(db_stats_t& a_stats) = 0;
         virtual int32_t sweep() = 0;
+        virtual int32_t clear_keys() = 0;
         const char *get_err_msg(void) { return m_err_msg; }
+
 protected:
         // -------------------------------------------------
         // private members

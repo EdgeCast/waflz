@@ -19,6 +19,11 @@ message condition {
                         FILE_EXT = 8;
                         GEO = 9;
                         REMOTE_ASN = 10;
+                        REMOTE_JA3 = 11;
+                        REQUEST_COOKIES = 12;
+                        QUERY_ARG = 13;
+                        REMOTE_JA4 = 14;
+                        BOT_SCORE = 15;                        
                 }
                 optional type_t type = 1;
                 optional string value = 2;
@@ -38,11 +43,6 @@ message condition_group {
 //: limit
 //: ----------------------------------------------------------------------------
 message limit {
-        enum key_t {
-                _NULL = 0;
-                IP = 1;
-                USER_AGENT = 2;
-        }
         // -------------------------------------------------
         // properties
         // -------------------------------------------------
@@ -54,6 +54,7 @@ message limit {
         optional string last_modified_by = 6;
         optional string account_type = 7;
         optional string partner_id = 8;
+        optional bool team_config = 9;
         // -------------------------------------------------
         // settings
         // -------------------------------------------------
@@ -62,7 +63,9 @@ message limit {
         optional uint64 end_epoch_msec = 102;
         optional uint32 duration_sec = 103;
         optional uint32 num = 104;
-        repeated key_t keys = 105;
+        repeated string keys = 105;
+        optional bool count_hotfile = 106;
+        optional bool enable_pop_count = 107;
         // -------------------------------------------------
         // conditions
         // -------------------------------------------------
@@ -83,6 +86,8 @@ message limit {
         // reserved for internal use
         // -------------------------------------------------
         optional string _reserved_1 = 9000;
+        optional string _reserved_match = 9001;
+        optional string _reserved_matched_key_log = 9002;
 }
 //: ----------------------------------------------------------------------------
 //: config
@@ -126,10 +131,16 @@ message alert {
         optional string geoip_city_name = 7;
         optional double geoip_latitude = 8;
         optional double geoip_longitude = 9;
+        optional uint32 geoip_asn = 10;
         // -------------------------------------------------
         // change/rev info about config
         // -------------------------------------------------
         optional string config_last_modified = 20;
+        // -------------------------------------------------
+        // DEBUG: matched limit config
+        // -------------------------------------------------
+        optional string matched_rl_key = 21;
+        optional string matched_rl_values = 22;
 }
 
 

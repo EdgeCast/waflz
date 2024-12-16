@@ -1,0 +1,87 @@
+[
+    {
+        "ja3": "0addf634a611d115ce8c4974a9528d46",
+        "score": 100,
+        "ua": [
+            "HeadlessChrome",
+            "got",
+            "Instagram",
+            "20Linespider",
+            "2Fbot",
+            "2Fcrawler",
+            "AdsBot-Google",
+            "Adsbot",
+            "AhrefsBot",
+            "Apache-HttpClient",
+            "BLEXBot",
+            "DotBot",
+            "FAST-WebCrawler",
+            "FreshpingBot"
+        ]
+    },
+    {
+        "ja3": "9f6d87ed619f9e6154cce412f32ed71e",
+        "score": 100,
+        "ua": [
+            "20Baiduspider",
+            "CFNetwork",
+            "DingTalkBot",
+            "HeadlessChrome",
+            "Python-urllib",
+            "QQ Browser",
+            "Mail.RU_Bot",
+            "QQ Browser Mobile",
+            "Slackbot-LinkExpanding",
+            "Wget",
+            "Qwantify",
+            "Mobile Safari UI\/WKWebView",
+            "WordPress"
+        ]
+    },
+    {
+        "ja3": "656b9a2f4de6ed4909e157482860ab3d",
+        "score": 99,
+        "ua": [
+            "Twitterbot",
+            "WhatsApp"
+        ]
+    },
+    {
+        "ja3": "656b9a2f4de6ed4909e157482860ab3d",
+        "score": 5,
+        "ua": [
+            "tester",
+            "WhatsApp"
+        ]
+    },
+    {
+        "score": 5,
+        "ua": [
+            "tester",
+            "WhatsApp"
+        ]
+    },
+    {
+        "ja3": "656b9a2f4de6ed4909e157482860ab3d",
+        "ua": [
+            "tester",
+            "WhatsApp"
+        ]
+    },
+    {
+        "ja3": "656b9a2f4de6ed4909e157482860ab3d",
+        "score": 5
+    },
+    {
+        "ja3": "253714f62c0a1e6869fe8ba6a45a0588",
+        "score": 75,
+        "ua": "test"
+    },
+    {
+        "ja3": "253714f62c0a1e6869fe8ba6a45a0588",
+        "score": 75,
+        "ua": [
+            "custom_bot_score"
+        ]
+    }
+]

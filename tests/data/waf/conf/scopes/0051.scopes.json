@@ -21,6 +21,8 @@
     },
     "acl_audit_action": null,
     "acl_audit_id": null,
+    "bots_prod_id": null,
+    "bots_prod_action": null,
     "rules_prod_id": "4fsYnj9c",
     "rules_prod_action": {
       "id": "zeAXrllT",

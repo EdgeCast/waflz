@@ -16,6 +16,7 @@
 #include "waflz/limit.h"
 #include "waflz/geoip2_mmdb.h"
 #include "waflz/enforcer.h"
+#include "waflz/scopes.h"
 #include "waflz/rqst_ctx.h"
 #include "support/file_util.h"
 #include "support/time_util.h"
@@ -33,18 +34,6 @@
 #ifndef STATUS_ERROR
   #define STATUS_ERROR -1
 #endif
-//! ----------------------------------------------------------------------------
-//! macros
-//! ----------------------------------------------------------------------------
-#define _GET_HEADER(_header) do { \
-        l_d.m_data = _header; \
-        l_d.m_len = sizeof(_header) - 1; \
-        ns_waflz::data_unordered_map_t::const_iterator i_h = a_ctx->m_header_map.find(l_d); \
-        if(i_h != a_ctx->m_header_map.end()) { \
-                l_v.m_data = i_h->second.m_data; \
-                l_v.m_len = i_h->second.m_len; \
-        } \
-        } while(0)
 namespace ns_waflz_server {
 //! ----------------------------------------------------------------------------
 //! \details return short date in form "<mm>/<dd>/<YYYY>"
@@ -67,127 +56,18 @@ static const char *get_date_short_str(void)
         }
 }
 //! ----------------------------------------------------------------------------
-//! \details TODO
-//! \return  None
-//! \param   TODO
-//! ----------------------------------------------------------------------------
-static int32_t add_limit_with_key(waflz_pb::limit &ao_limit,
-                                  uint16_t a_key,
-                                  ns_waflz::rqst_ctx *a_ctx)
-{
-        if(!a_ctx)
-        {
-                return WAFLZ_STATUS_ERROR;
-        }
-        // -------------------------------------------------
-        // Set operator to streq for all
-        // -------------------------------------------------
-        const char *l_data = NULL;
-        uint32_t l_len = 0;
-        switch(a_key)
-        {
-        // -------------------------------------------------
-        // ip
-        // -------------------------------------------------
-        case waflz_pb::limit_key_t_IP:
-        {
-                l_data = a_ctx->m_src_addr.m_data;
-                l_len = a_ctx->m_src_addr.m_len;
-                break;
-        }
-        // -------------------------------------------------
-        // user-agent
-        // -------------------------------------------------
-        case waflz_pb::limit_key_t_USER_AGENT:
-        {
-                if(!a_ctx)
-                {
-                        break;
-                }
-                ns_waflz::data_t l_d;
-                ns_waflz::data_t l_v;
-                _GET_HEADER("User-Agent");
-                l_data = l_v.m_data;
-                l_len = l_v.m_len;
-                break;
-        }
-        // -------------------------------------------------
-        // ???
-        // -------------------------------------------------
-        default:
-        {
-                //WAFLZ_PERROR(m_err_msg, "unrecognized dimension type: %u", a_key);
-                return WAFLZ_STATUS_ERROR;
-        }
-        }
-        // if no data -no limit
-        if(!l_data ||
-           (l_len == 0))
-        {
-                return WAFLZ_STATUS_OK;
-        }
-        // Add limit for any data
-        waflz_pb::condition *l_c = NULL;
-        if(ao_limit.condition_groups_size() > 0)
-        {
-                l_c = ao_limit.mutable_condition_groups(0)->add_conditions();
-        }
-        else
-        {
-                l_c = ao_limit.add_condition_groups()->add_conditions();
-        }
-        // -------------------------------------------------
-        // set operator
-        // -------------------------------------------------
-        // always STREQ
-        waflz_pb::op_t* l_operator = l_c->mutable_op();
-        l_operator->set_type(waflz_pb::op_t_type_t_STREQ);
-        l_operator->set_value(l_data, l_len);
-        // -------------------------------------------------
-        // set var
-        // -------------------------------------------------
-        waflz_pb::condition_target_t* l_var = l_c->mutable_target();
-        switch(a_key)
-        {
-        // -------------------------------------------------
-        // ip
-        // -------------------------------------------------
-        case waflz_pb::limit_key_t_IP:
-        {
-                l_var->set_type(waflz_pb::condition_target_t_type_t_REMOTE_ADDR);
-                break;
-        }
-        // -------------------------------------------------
-        // user-agent
-        // -------------------------------------------------
-        case waflz_pb::limit_key_t_USER_AGENT:
-        {
-                l_var->set_type(waflz_pb::condition_target_t_type_t_REQUEST_HEADERS);
-                l_var->mutable_value()->assign("User-Agent");
-                break;
-        }
-        // -------------------------------------------------
-        // ???
-        // -------------------------------------------------
-        default:
-        {
-                break;
-        }
-        }
-        return WAFLZ_STATUS_OK;
-}
-//! ----------------------------------------------------------------------------
 //! \details: TODO
 //! \return:  TODO
 //! \param:   TODO
 //! ----------------------------------------------------------------------------
-sx_limit::sx_limit(ns_waflz::kv_db &a_db):
+sx_limit::sx_limit(ns_waflz::engine& a_engine, ns_waflz::kv_db &a_db):
         m_limit(NULL),
         m_db(a_db),
         m_enfx(NULL),
         m_geoip2_mmdb(NULL),
         m_geoip2_db(),
-        m_geoip2_isp_db()
+        m_geoip2_isp_db(),
+        m_engine(a_engine)
 {
         m_enfx = new ns_waflz::enforcer(false);
         m_enf = new waflz_pb::enforcement();
@@ -275,8 +155,8 @@ ns_is2::h_resp_t sx_limit::handle_rqst(waflz_pb::enforcement **ao_enf,
         // -------------------------------------------------
         // init rqst processing
         // -------------------------------------------------
-        l_ctx = new ns_waflz::rqst_ctx((void *)&a_session, 0, m_callbacks, false, false);
-        l_s = l_ctx->init_phase_1(*m_geoip2_mmdb);
+        l_ctx = new ns_waflz::rqst_ctx((void *)&a_session, 0, 0, m_callbacks, false, false);
+        l_s = l_ctx->init_phase_1(m_engine);
         if(l_s != STATUS_OK)
         {
                 NDBG_PRINT("error performing init_phase_1.\n");
@@ -306,7 +186,7 @@ ns_is2::h_resp_t sx_limit::handle_rqst(waflz_pb::enforcement **ao_enf,
         bool l_exceeds = false;
         const waflz_pb::condition_group *l_cg = NULL;
         const std::string l_s_id = "__na__";
-        l_s = m_limit->process(l_exceeds, &l_cg, l_s_id, l_ctx);
+        l_s = m_limit->process(l_exceeds, &l_cg, l_s_id, l_ctx, true);
         if(l_s != WAFLZ_STATUS_OK)
         {
                 NDBG_PRINT("error performing limit process.  Reason: %s", m_limit->get_err_msg());
@@ -366,7 +246,7 @@ ns_is2::h_resp_t sx_limit::handle_rqst(waflz_pb::enforcement **ao_enf,
         for(int i_k = 0; i_k < l_pb.keys_size(); ++i_k)
         {
                 int32_t l_s;
-                l_s = add_limit_with_key(*l_limit,
+                l_s = ns_waflz::add_limit_with_key(*l_limit,
                                          l_pb.keys(i_k),
                                          l_ctx);
                 if(l_s != WAFLZ_STATUS_OK)

@@ -1,6 +1,7 @@
 {
   "customer_id": "0050",
   "account_type": "P",
+  "bot_tier": "A",
   "partner_id": "this_is_the_partner_id",
   "id": "xDre6J1c",
   "last_modified_date": "2019-04-18T19:48:25.142172Z",
@@ -19,6 +20,28 @@
       "type": "GLOB",
       "value": "*"
     },
+    "origin_signal_headers" : [
+      {
+        "key" : "mycoolbot_score",
+        "type" : "BOT_SCORE"
+      },
+      {
+        "key" : "mycoolwafscore_name",
+        "type" : "WAF_SCORE"
+      },
+      {
+        "key" : "mycoolknow_bot",
+        "type" : "KNOWN_BOT"
+      },
+      {
+        "key" : "bot tags",
+        "type" : "BOT_SCORE_TAGS"
+      },
+      {
+        "key" : "waf tags",
+        "type" : "WAF_TAGS"
+      }
+    ],
     "acl_prod_id": "ZrLf2KkQ",
     "acl_prod_action": {
       "id": "zeAXrlLT",
@@ -72,8 +95,29 @@
     },
     "acl_audit_id":"5wOgfHWR",
     "acl_audit_action": {
-
     },
+    "origin_signal_headers" : [
+      {
+        "key" : "mycoolbot_score",
+        "type" : "BOT_SCORE"
+      },
+      {
+        "key" : "mycoolwafscore_name",
+        "type" : "WAF_SCORE"
+      },
+      {
+        "key" : "mycoolknow_bot",
+        "type" : "KNOWN_BOT"
+      },
+      {
+        "key" : "bot tags",
+        "type" : "BOT_SCORE_TAGS"
+      },
+      {
+        "key" : "waf tags",
+        "type" : "WAF_TAGS"
+      }
+    ],
     "acl_prod_id":"ZrLf2KkQ",
     "acl_prod_action": {
       "id": "zeAXrlLT",
@@ -177,6 +221,139 @@
           "response_body_base64": "Y3VzdG9tIHJlc3BvbnNlIGZvciBsaW1pdHMgZnJvbSBsaW1pdF9pZF8yCg=="
        }
     }]
+  },
+  {
+    "id":"wHyMHxV7",
+    "name": "Scopes to test bot rules",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "mybot.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "limits":[{
+       "id":"EbyaseTF",
+       "action":{
+          "id":"zeAXrllT",
+          "name":"ddos-action",
+          "status": 403,
+          "duration_sec": 2,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64": "ZGRvcyBlbmZvcmNlbWVudCBmcm9tIGJvdCBjb25maWcK"
+       }
+    }],
+    "profile_prod_id": "Ab98JXk",
+    "profile_prod_action": {
+      "id": "Ab98JXk",
+      "name": "ACTION",
+      "response_body_base64": "VGhpcyBpcyBwcm9maWxlIGN1c3RvbSByZXNwb25zZQo=",
+      "response_headers": {
+        "x-ec-rules": "rejected"
+      },
+      "status": 403,
+      "enf_type": "CUSTOM_RESPONSE"
+    }
+  },
+  {
+    "id": "api_gw_id_1",
+    "name": "a scope for api_gw",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "test_api_gw.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "api_gw_audit_id":"qSMXE66R",
+    "api_gw_audit_action":{
+      "name": "api_gw-audit-action",
+      "status":403,
+      "enf_type": "CUSTOM_RESPONSE",
+      "response_body_base64":"VGhpcyBpcyBhcGkgc2VjdXJpdHkgYXVkaXQgY3VzdG9tIHJlc3BvbnNlCg=="
+    },
+    "api_gw_prod_id":"nif70s89",
+    "api_gw_prod_action":{
+          "name": "api_gw-prod-action",
+          "status":403,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64":"VGhpcyBpcyBhcGkgc2VjdXJpdHkgY3VzdG9tIHJlc3BvbnNlCg=="
+    },
+    "acl_prod_id":"5wOgfHWR",
+    "acl_prod_action":{
+          "name": "acl-action",
+          "status":403,
+          "enf_type": "CUSTOM_RESPONSE",
+          "response_body_base64":"VGhpcyBpcyBhY2wgY3VzdG9tIHJlc3BvbnNlCg=="
+    },
+    "limits":[{
+      "id":"MjMhNXMR",
+      "action":{
+         "id":"zeAXrllT",
+         "name":"ddos-action",
+         "status": 403,
+         "duration_sec": 2,
+         "enf_type": "CUSTOM_RESPONSE",
+         "response_body_base64": "VGhpcyBpcyBkZG9zIGN1c3RvbSByZXNwb25zZQo="
+      }
+   }]
+  },
+  {
+    "id": "client_waf_scope",
+    "name": "scope for client waf",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "test.client.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "client_waf_config_id": "csfile",
+    "profile_prod_id": "response",
+    "profile_prod_action": {
+      "id": "response_action",
+      "name": "ACTION",
+      "response_body_base64": "VGhpcyBpcyBwcm9maWxlIGN1c3RvbSByZXNwb25zZQo=",
+      "response_headers": {
+        "x-ec-rules": "rejected"
+      },
+      "status": 403,
+      "enf_type": "CUSTOM_RESPONSE"
+    }
+  },
+  {
+    "id": "response_rl_scope",
+    "name": "scope for response rate limiting",
+    "host": {
+      "is_negated": false,
+      "type": "EM",
+      "value": "test.response_rl.com"
+    },
+    "path": {
+      "is_negated": false,
+      "type": "GLOB",
+      "value": "*"
+    },
+    "limits":[{
+      "id":"response",
+      "action":{
+         "id":"zeAXrllT",
+         "name":"error bounce",
+         "status": 403,
+         "duration_sec": 2,
+         "enf_type": "CUSTOM_RESPONSE",
+         "response_body_base64": "VGhpcyBpcyBkZG9zIGN1c3RvbSByZXNwb25zZQo="
+      }
+   }]
   }
 ]
 }
